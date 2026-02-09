@@ -1,6 +1,7 @@
 import numpy as np
 import cv2 as cv
 import glob
+import os
 
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -13,7 +14,12 @@ objp[:,:2] = np.mgrid[0:7,0:6].T.reshape(-1,2)
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
-images = glob.glob('*.jpg')
+dirname = os.path.dirname(__file__)
+filename = os.path.join(dirname, '/images')
+
+#print(dirname)
+images = glob.glob('/home/pi2/Documents/exjobb/tqet33-exjobb/code/images/*.jpg')
+#print(images)
 
 for fname in images:
     img = cv.imread(fname)
@@ -35,3 +41,25 @@ for fname in images:
         cv.waitKey(500)
 
 cv.destroyAllWindows()
+
+ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+
+img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/images/image0000.jpg')
+h,  w = img.shape[:2]
+newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
+
+# undistort
+dst = cv.undistort(img, mtx, dist, None, newcameramtx)
+
+# crop the image
+x, y, w, h = roi
+dst = dst[y:y+h, x:x+w]
+cv.imwrite('calibresult.png', dst)
+
+mean_error = 0
+for i in range(len(objpoints)):
+    imgpoints2, _ = cv.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+    error = cv.norm(imgpoints[i], imgpoints2, cv.NORM_L2)/len(imgpoints2)
+    mean_error += error
+
+print( "total error: {}".format(mean_error/len(objpoints)) )
