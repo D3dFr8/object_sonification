@@ -27,6 +27,7 @@ for fname in images:
 
     # Find the chess board corners
     ret, corners = cv.findChessboardCorners(gray, (7,6), None)
+    print(ret)
 
     # If found, add object points, image points (after refining them)
     if ret == True:
