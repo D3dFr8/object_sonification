@@ -7,15 +7,15 @@ import os
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-objp = np.zeros((6*7,3), np.float32)
-objp[:,:2] = np.mgrid[0:7,0:6].T.reshape(-1,2)
+objp = np.zeros((13*9,3), np.float32)
+objp[:,:2] = np.mgrid[0:13,0:9].T.reshape(-1,2)
 
 # Arrays to store object points and image points from all the images.
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
-dirname = os.path.dirname(__file__)
-filename = os.path.join(dirname, '/images')
+#dirname = os.path.dirname(__file__)
+#filename = os.path.join(dirname, '/images')
 
 #print(dirname)
 images = glob.glob('/home/pi2/Documents/exjobb/tqet33-exjobb/code/images/*.jpg')
@@ -26,26 +26,28 @@ for fname in images:
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
     # Find the chess board corners
-    ret, corners = cv.findChessboardCorners(gray, (7,6), None)
+    ret, corners = cv.findChessboardCorners(gray, (13,9), None)
     print(ret)
 
     # If found, add object points, image points (after refining them)
     if ret == True:
         objpoints.append(objp)
 
-        corners2 = cv.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
+        corners2 = cv.cornerSubPix(gray,corners, (20,20), (-1,-1), criteria)
         imgpoints.append(corners2)
 
         # Draw and display the corners
-        cv.drawChessboardCorners(img, (7,6), corners2, ret)
+        cv.drawChessboardCorners(img, (13,9), corners2, ret)
         cv.imshow('img', img)
         cv.waitKey(500)
+
+cv.waitKey(1000)
 
 cv.destroyAllWindows()
 
 ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
-img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/images/image0000.jpg')
+img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/images/image0002.jpg')
 h,  w = img.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
 
