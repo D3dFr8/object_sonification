@@ -8,7 +8,10 @@ criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
 objp = np.zeros((13*9,3), np.float32)
-objp[:,:2] = np.mgrid[0:13,0:9].T.reshape(-1,2)
+
+#square size in mm
+sq_size = 40
+objp[:,:2] = np.mgrid[0:13,0:9].T.reshape(-1,2) * sq_size
 
 # Arrays to store object points and image points from all the images.
 objpoints = [] # 3d point in real world space
@@ -18,7 +21,7 @@ imgpoints = [] # 2d points in image plane.
 #filename = os.path.join(dirname, '/images')
 
 #print(dirname)
-images = glob.glob('/home/pi2/Documents/exjobb/tqet33-exjobb/code/images/*.jpg')
+images = glob.glob('/home/pi2/Documents/exjobb/tqet33-exjobb/code/imagesForCalibVer2/*.jpg')
 #print(images)
 
 for fname in images:
@@ -33,7 +36,7 @@ for fname in images:
     if ret == True:
         objpoints.append(objp)
 
-        corners2 = cv.cornerSubPix(gray,corners, (20,20), (-1,-1), criteria)
+        corners2 = cv.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
         imgpoints.append(corners2)
 
         # Draw and display the corners
@@ -47,9 +50,9 @@ cv.destroyAllWindows()
 
 ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
-img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/images/image0002.jpg')
+img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/imagesForCalibVer2/image0000.jpg')
 h,  w = img.shape[:2]
-newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
+newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 0, (w,h))
 
 # undistort
 dst = cv.undistort(img, mtx, dist, None, newcameramtx)
