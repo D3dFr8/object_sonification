@@ -3,6 +3,7 @@ import cv2 as cv
 import glob
 import random
 import os
+import json
 
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -22,7 +23,7 @@ trainimgpoints = [] # 2d points in image plane.
 #filename = os.path.join(dirname, '/images')
 
 #print(dirname)
-images = glob.glob('/home/pi2/Documents/exjobb/tqet33-exjobb/code/imagesForCalibVer2/*.jpg')
+images = glob.glob('/home/pi2/Documents/exjobb/tqet33-exjobb/code/imagesForCalib/*.jpg')
 random.shuffle(images)
 
 split_idx = int(len(images)*0.8)
@@ -58,6 +59,16 @@ ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(trainobjpoints, trainimgpoints
                                 gray.shape[::-1], None, None, 
                                 flags=cv.CALIB_FIX_K3) #remove k3, extraneous distortion parameter
 
+results = {
+    "ret": ret,
+    "camera matrix": mtx,
+    "distortion coeff": dist,
+    "rotation vector": rvecs,
+    "translation vector": tvecs
+}
+
+np.save("calib_results.npy", results)
+"""
 img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/test.jpg')
 h,  w = img.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 0, (w,h))
@@ -69,6 +80,7 @@ dst = cv.undistort(img, mtx, dist, None, newcameramtx)
 x, y, w, h = roi
 dst = dst[y:y+h, x:x+w]
 cv.imwrite('imageAfter.png', dst)
+"""
 
 #calculate re-projection (training) error
 mean_error = 0
