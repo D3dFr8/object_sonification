@@ -6,6 +6,9 @@ import time
 from nearestHrir import *
 from pydub import AudioSegment
 #import sounddevice
+"""
+Logga i en fil och köra med olika filter
+"""
 
 from point import *
 
@@ -75,7 +78,7 @@ try:
 
                     #get coordinates of middle of object
                     u = float(pixel_x + (pixel_w/2))
-                    v = -float(pixel_y + (pixel_h/2))
+                    v = float(pixel_y + (pixel_h/2))
                     w = 1.0
 
                     center_coords = np.array([u, v, w], dtype=np.float64)
@@ -89,7 +92,7 @@ try:
 
                     #convert cartesian coordinates to spherical
                     r = np.linalg.norm(camera_vec)
-                    theta = 90 - (180/np.pi * np.arccos(camera_vec[1]/r))
+                    theta = 90 - (180/np.pi * np.arccos(-camera_vec[1]/r))
                     phi = 180/np.pi * np.arctan(camera_vec[0])
 
                     print(f'Object of class {category} found with confidence {confidence:.2f} at {(u, v, w)}')
@@ -99,11 +102,11 @@ try:
                     left, right = findNearestHRIR(createPointFromSph(phi, theta, 1))
                     audio = AudioSegment.from_mp3("soundreality-finger-snap-sound-423220.mp3")
                     
-                    left_conv = np.convolve(left, audio)
-                    right_conv = np.convolve(right, audio)
+                    #left_conv = np.convolve(left, audio)
+                    #right_conv = np.convolve(right, audio)
                     
                     #sounddevice.play()
-                    print(f'Left: {left_conv}, Right: {right_conv}')
+                    #print(f'Left: {left_conv}, Right: {right_conv}')
             print("-------------------------------------------")
 
         time.sleep(0.01)
