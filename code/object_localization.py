@@ -5,7 +5,15 @@ import cv2 as cv
 import time
 from nearestHrir import *
 from pydub import AudioSegment
-#import sounddevice
+import point
+import soundTools
+import loadHrir
+import getHRIR
+import angle
+import threading as th
+import asyncio
+from pubSub import *
+from multiprocessing import Process, Pipe
 """
 Logga i en fil och köra med olika filter
 """
@@ -34,10 +42,22 @@ config = picam.create_preview_configuration(
 )
 picam.configure(config)
 
-audio = AudioSegment.from_mp3("soundreality-finger-snap-sound-423220.mp3")
-left_channel, right_channel = audio.split_to_mono()
-left_channel = np.array(left_channel.get_array_of_samples())
-right_channel = np.array(right_channel.get_array_of_samples())
+hrirSr = loadHrir.getSamplingRate()
+audio, sr = soundTools.loadMP3('snap.mp3', hrirSr)
+
+target = []
+yL = SoundChannel()
+yR = SoundChannel()
+ready = [False]
+running = [True]
+
+#t1 = th.Thread(target = child, args=(target, audio, sr, yL, yR, ready, running, ))
+#t1.start()
+
+parent_conn, child_conn = Pipe()
+child_conn.send([target, audio, sr, yL, yR, ready, running])
+p = Process(target=child, args=(child_conn,))
+p.start()
 
 #start camera
 picam.start_preview(Preview.QTGL)
@@ -56,67 +76,100 @@ try:
             #extract the boxes, confidence scores, and object types from detected objects
             boxes, scores, classes = objects[0], objects[1], objects[2]
             
+            best_i = -1
+            largest_w = 0
             #minimum confidence for an object to be considered
             threshold = 0.5
             for i in range(len(boxes)):
-                if scores[i] > threshold:
-                    # extract normalized coordinates, confidence and object type
-                    x, y, w, h = boxes[i]
-                    confidence = scores[i]
-                    category = classes[i]
+                if scores[i] > threshold and classes[i] == 0:
+                    if boxes[i][2] > largest_w:
+                        largest_w = boxes[i][2]
+                        best_i = i
 
-                    #get exact pixel location of object:
-                    width, height = 2028, 1520
+            if best_i >= 0:
+                # extract normalized coordinates, confidence and object type
+                # the camera is preset to portrait mode, so we extract the coords and dims this way
+                y, x, h, w = boxes[best_i]
+                confidence = scores[best_i]
+                category = classes[best_i]
 
-                    pixel_x = x * width
-                    pixel_y = y * height
-                    pixel_w = w * width
-                    pixel_h = h * height
+                #get exact pixel location of object:
+                width, height = 2028, 1520
 
-                    #get coordinates of middle of object
-                    u = float(pixel_x + (pixel_w/2))
-                    v = float(pixel_y + (pixel_h/2))
-                    w = 1.0
+                pixel_x = x * width
+                pixel_y = y * height
+                pixel_w = w * width
+                pixel_h = h * height
 
-                    #create array with pixel coordinates and convert to camera's coordinates
-                    center_coords = np.array([u, v, w], dtype=np.float64)
-                    camera_vec = cam_mtx_inv.dot(center_coords)
-                    camera_vec[0] = -camera_vec[0]
-                    #camera_vec[1] = -camera_vec[1]
+                #get coordinates of middle of object
+                u = float(pixel_x + (pixel_w/2))
+                v = float(pixel_y + (pixel_h/2))
+                w_coord = 1.0
 
-                    #convert cartesian coordinates to spherical and compute depth
-                    r = np.linalg.norm(camera_vec)
-                    azimut = 90 - (180/np.pi * np.arccos(camera_vec[1]/r))
-                    elevation = 180/np.pi * np.arctan(camera_vec[0])
+                #create array with pixel coordinates and convert to camera's coordinates
+                center_coords = np.array([u, v, w_coord], dtype=np.float64)
+                camera_vec = cam_mtx_inv.dot(center_coords)
+                camera_vec[0] = -camera_vec[0]
+                #camera_vec[1] = -camera_vec[1]
 
-                    #real_w_human = 0.6
-                    #focal_len = cam_mtx[0, 0]
-                    #depth = real_w_human*focal_len/pixel_w
+                #convert cartesian coordinates to spherical and compute distance
+                r = np.linalg.norm(camera_vec)
+                
+                #azimuth = 90 - (180/np.pi * np.arccos(camera_vec[1]/r))
+                #elevation = 180/np.pi * np.arctan(camera_vec[0])
+                azimuth = np.degrees(np.arctan2(camera_vec[0], 1)) * -1
+                elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
+
+                real_w_human = 0.6
+                focal_len = cam_mtx[0,0]*2
+                distance = (real_w_human*focal_len)/float(pixel_w)
+
+                print(f'Object of class {category} found with confidence {confidence:.2f}')
+                #print(f'Camera vector: {camera_vec}')
+                #print(f"Object at X: {x:.2f}, Y: {y:.2f} (Width: {pixel_w:.2f})")
+                print(f'Azimuth: {float(azimuth)}, Elevation: {float(elevation)}, Distance: {float(distance)}')
 
 
-                    print(f'Object of class {category} found with confidence {confidence:.2f}')
-                    #print(f'Camera vector: {camera_vec}')
-                    print(f'Azimut: {float(azimut)}, Elevation: {float(elevation)}')
+                #left, right = findNearestHRIR(createPointFromSph(azimuth, elevation, distance))
 
-                    #vec_2d = cv.undistortPoints(center_coords, cam_mtx, distortion)
+                #left_conv = np.convolve(left, left_channel)
+                #right_conv = np.convolve(right, right_channel)
+                
+                #sounddevice.play()
+                #print(f'Left: {left}, Right: {right}')
+                #print(f'L channel: {left_conv}, R channel: {right_conv}')
+                
+                #------------------Play sound-------------------#
+
+                targetAz = angle.createAngleFromDegrees(azimuth)
+                targetEl = angle.createAngleFromDegrees(elevation)
+                targetR = distance
+
+                target_point = point.createPointFromSph(targetAz,targetEl,targetR)
+
+                conn = parent_conn.recv()
+                target, ready = conn[0], conn[5]
+                if ready[0] == False:
+                    #if not yL.empty():
+                    #    print("Playing sound")
                     
-                    #vec_x = vec_2d[0,0,0]
-                    #vec_y = vec_2d[0,0,1]
+                    target.append(target_point)
+                    ready[0] = True
+                    child_conn.send([target, audio, sr, yL, yR, ready, running])
 
-                    #camera_vec = np.array([vec_x, vec_y])
 
-                    left, right = findNearestHRIR(createPointFromSph(azimut, elevation, 1))
-                    
-                    left_conv = np.convolve(left, left_channel)
-                    right_conv = np.convolve(right, right_channel)
-                    
-                    #sounddevice.play()
-                    #print(f'Left: {left}, Right: {right}')
-                    #print(f'L channel: {left_conv}, R channel: {right_conv}')
+                #hL,hR = getHRIR.getHrirAtTargetNN(targetPoint)
+
+                #yL = soundTools.conv(audio,hL).tolist()
+                #yR = soundTools.conv(audio,hR).tolist()
+            
             print("-------------------------------------------")
 
         time.sleep(0.01)
 
 except KeyboardInterrupt:
+    running[0] = False
+    #t1.join()
+    p.join()
     picam.stop()
     picam.close()
