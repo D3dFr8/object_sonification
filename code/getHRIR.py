@@ -64,6 +64,6 @@ def getHrirAtTarget(targetPoint):
 
     return hL, hR
 
-if __name__ == "__main__":
+#if __name__ == "__main__":
 
-    getHrirAtTarget(point.createPointFromSphArray([0,0,1]))
+ #   getHrirAtTarget(point.createPointFromSphArray([0,0,1]))

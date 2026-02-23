@@ -18,7 +18,7 @@ def resample(y, sr_old, sr_new):
 def conv(A,B):
     return np.convolve(A,B)
 
-async def playSound(yL,yR,sr):
+def playSound(yL,yR,sr):
     stereo = np.vstack((yL,yR)).T
     sd.play(stereo, sr)
     sd.wait()
