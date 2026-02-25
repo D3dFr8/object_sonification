@@ -23,7 +23,7 @@ Logga i en fil och köra med olika filter
 def audio_process(conn, audio, sr):
     while True:
         #returns True if there is data in pipeline. Block for 50 ms
-        if conn.poll(0.05):
+        if conn.poll():
             try:
                 #extract latest pipeline data
                 msg = conn.recv()
@@ -52,8 +52,6 @@ def audio_process(conn, audio, sr):
                 hL,hR = getHRIR.getHrirAtTarget(target_point)
                 yL = soundTools.conv(audio,hL).tolist()
                 yR = soundTools.conv(audio,hR).tolist()
-
-                #if max([abs(i) for i in yL]) > 1 or max([abs(i) for i in yR]) > 1:
 
                 soundTools.playSound(yL,yR,sr)
 
