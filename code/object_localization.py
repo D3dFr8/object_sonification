@@ -13,6 +13,7 @@ import threading as th
 import asyncio
 from multiprocessing import Process, Pipe
 from point import *
+import matplotlib.pyplot as plt
 """
 Logga i en fil och köra med olika filter
 """
@@ -49,7 +50,7 @@ def audio_process(conn, audio, sr):
                 target_point = point.createPointFromSph(targetAz,targetEl,targetR)
 
                 #calculate HRIR, convolve, and play sound
-                hL,hR = getHRIR.getHrirAtTarget(target_point)
+                hL,hR = getHRIR.getHrirAtTarget(target_point, 0.1)
                 yL = soundTools.conv(audio,hL).tolist()
                 yR = soundTools.conv(audio,hR).tolist()
 
@@ -67,6 +68,11 @@ if __name__ == "__main__":
     hrirSr = loadHrir.getSamplingRate()
     audio, sr = soundTools.loadMP3('snap.mp3', hrirSr)
 
+    a = len(audio)
+    f = np.arange(0, a//2 + 1) * (sr / a)
+    #fig = plt.figure()
+    #plt.plot(f,np.abs(np.fft.fft(audio))[:1+a//2])
+    #plt.show()
     #start parent and child process
     parent_conn, child_conn = Pipe()
     p = Process(target=audio_process, args=(child_conn, audio, sr))
@@ -118,51 +124,49 @@ if __name__ == "__main__":
                             widest_box = boxes[i][2]
                             idx_widest = i
 
-                if idx_widest >= 0:
-                    # extract normalized coordinates, confidence and object type
-                    # the camera is preset to portrait mode, so we extract the coords and dims this way
-                    y, x, h, w = boxes[idx_widest]
-                    confidence = scores[idx_widest]
-                    category = classes[idx_widest]
+                # extract normalized coordinates, confidence and object type
+                # the camera is preset to portrait mode, so we extract the coords and dims this way
+                y, x, h, w = boxes[idx_widest]
+                confidence = scores[idx_widest]
+                category = classes[idx_widest]
 
-                    #get exact pixel location of object:
-                    width, height = 2028, 1520
-                    pixel_x = x * width
-                    pixel_y = y * height
-                    pixel_w = w * width
-                    pixel_h = h * height
+                #get exact pixel location of object:
+                width, height = 2028, 1520
+                pixel_x = x * width
+                pixel_y = y * height
+                pixel_w = w * width
+                pixel_h = h * height
 
-                    #get coordinates of middle of object
-                    u = float(pixel_x + (pixel_w/2))
-                    v = float(pixel_y + (pixel_h/2))
-                    w_coord = 1.0
+                #get coordinates of middle of object
+                u = float(pixel_x + (pixel_w/2))
+                v = float(pixel_y + (pixel_h/2))
+                w_coord = 1.0
 
-                    #create array with pixel coordinates and convert to camera's coordinates
-                    center_coords = np.array([u, v, w_coord], dtype=np.float64)
-                    camera_vec = cam_mtx_inv.dot(center_coords)
-                    camera_vec[0] = -camera_vec[0]
+                #create array with pixel coordinates and convert to camera's coordinates
+                center_coords = np.array([u, v, w_coord], dtype=np.float64)
+                camera_vec = cam_mtx_inv.dot(center_coords)
+                camera_vec[0] = -camera_vec[0]
 
-                    #compute horizontal and vertical angles
-                    #r = np.linalg.norm(camera_vec)
-                    #azimuth = 90 - (180/np.pi * np.arccos(camera_vec[1]/r))
-                    #elevation = 180/np.pi * np.arctan(camera_vec[0])
-                    azimuth = np.degrees(np.arctan2(camera_vec[0], 1)) * -1
-                    elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
+                #compute horizontal and vertical angles
+                azimuth = np.degrees(np.arctan2(camera_vec[0], 1)) * -1
+                elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
 
-                    #compute distance based on IRL width of object
-                    real_w_human = 0.6
-                    focal_len = cam_mtx[0,0]*2
-                    distance = (real_w_human*focal_len)/float(pixel_w)
+                #compute distance based on IRL width of object
+                real_w_human = 0.5
+                focal_len = cam_mtx[0,0]*2
+                #print(f'focalx: {focal_len/2}, focaly: {cam_mtx[1,1]}')
+                distance = (real_w_human*focal_len)/float(pixel_w)
 
-                    target = (float(azimuth), float(elevation), float(distance))
-                    print(f'Object of class {category} found with confidence {confidence:.2f}')
-                    #print(f'Camera vector: {camera_vec}')
-                    #print(f"Object at X: {x:.2f}, Y: {y:.2f} (Width: {pixel_w:.2f})")
-                    print(f'Azimuth: {target[0]}, Elevation: {target[1]}, Distance: {target[2]}')
-                    
-                    #send target point to pipeline for audio
-                    parent_conn.send(target)
+                target = (float(azimuth), float(elevation), float(distance))
+
+                print(f'Object of class {category} found with confidence {confidence:.2f}')
+                #print(f'Camera vector: {camera_vec}')
+                #print(f"Object at X: {x:.2f}, Y: {y:.2f} (Width: {pixel_w:.2f})")
+                print(f'Azimuth: {target[0]}, Elevation: {target[1]}, Distance: {target[2]}')
                 
+                #send target point to pipeline for audio
+                parent_conn.send(target)
+            
                 print("-------------------------------------------")
 
             time.sleep(0.01)

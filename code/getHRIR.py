@@ -6,8 +6,12 @@ from PointToIrNN import PointToIrNN, trainNetwork
 import matplotlib.pyplot as plt
 import time
 import numpy as np
+import attenuation
+import soundTools
+
 
 hrir = loadHrir.getImpulseResponses()
+N = len(hrir[1,1,:])
 sourcePositions = loadHrir.getSourcePositions()[:,:2]
 
 #path = 'mit_kemar_net.pth'
@@ -15,6 +19,8 @@ sourcePositions = loadHrir.getSourcePositions()[:,:2]
 
 earPoints = np.array(loadHrir.getEarPositions())
 sourcePoints = np.array(loadHrir.getSourcePoints())
+
+fs = loadHrir.getSamplingRate()
 
 def getHrirAtTargetNN(targetPoint):
     """
@@ -38,7 +44,12 @@ def getHrirAtTargetNN(targetPoint):
 
     return predicted_hrirL, predicted_hrirR
 
-def getHrirAtTarget(targetPoint):
+f = np.arange(0, N//2 + 1) * (fs / N)
+
+alpha = attenuation.computeAbsorptionCoefficient(f)
+
+def getHrirAtTarget(targetPoint, r0):
+
     """
     Docstring for getHrirAtTarget
     
@@ -61,6 +72,11 @@ def getHrirAtTarget(targetPoint):
 
     hL = np.array(np.sum(hLs, axis=0))
     hR = np.array(np.sum(hRs, axis=0))
+
+    hAtt = np.abs(attenuation.createAbsorptionFilter(alpha, targetPoint.r, r0))
+
+    hL = soundTools.conv(hL,hAtt)
+    hR = soundTools.conv(hR,hAtt)
 
     return hL, hR
 
