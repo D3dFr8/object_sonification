@@ -19,9 +19,21 @@ Logga i en fil och köra med olika filter
 """
 
 #----------------------------------------------#
+#-----------------CHIRP GENERATOR--------------#
+#----------------------------------------------#
+def create_chirp(Fs, Fe, duration, sample_rate, amp):
+    #create a time sequence
+    t = np.linspace(0, duration, int(sample_rate * duration), endpoint=True)
+    k = (Fe - Fs) / duration  # sweep rate (Hz/s)
+    #compute phase
+    phase = 2 * np.pi * (Fs * t + 0.5 * k * t**2)
+    signal = amp * np.sin(phase)
+    return signal
+
+#----------------------------------------------#
 #-----------------AUDIO HANDLER----------------#
 #----------------------------------------------#
-def audio_process(conn, audio, sr):
+def audio_process(conn, sr):
     while True:
         #returns True if there is data in pipeline. Block for 50 ms
         if conn.poll():
@@ -49,10 +61,12 @@ def audio_process(conn, audio, sr):
                 targetR = r
                 target_point = point.createPointFromSph(targetAz,targetEl,targetR)
 
+                #create chirp with duration scaled with distance
                 #calculate HRIR, convolve, and play sound
+                chirp = create_chirp(200, 400, 0.03*targetR, sr, 0.3)
                 hL,hR = getHRIR.getHrirAtTarget(target_point, 0.1)
-                yL = soundTools.conv(audio,hL).tolist()
-                yR = soundTools.conv(audio,hR).tolist()
+                yL = soundTools.conv(chirp,hL).tolist()
+                yR = soundTools.conv(chirp,hR).tolist()
 
                 soundTools.playSound(yL,yR,sr)
 
@@ -66,16 +80,11 @@ def audio_process(conn, audio, sr):
 if __name__ == "__main__":
     #init audio
     hrirSr = loadHrir.getSamplingRate()
-    audio, sr = soundTools.loadMP3('snap.mp3', hrirSr)
+    #audio, sr = soundTools.loadMP3('snap.mp3', hrirSr)
 
-    a = len(audio)
-    f = np.arange(0, a//2 + 1) * (sr / a)
-    #fig = plt.figure()
-    #plt.plot(f,np.abs(np.fft.fft(audio))[:1+a//2])
-    #plt.show()
-    #start parent and child process
+    #chirp = create_chirp(200, 400, 0.07, hrirSr, 0.5)
     parent_conn, child_conn = Pipe()
-    p = Process(target=audio_process, args=(child_conn, audio, sr))
+    p = Process(target=audio_process, args=(child_conn, hrirSr))
     p.start()
 
     #get dictionary with results from the calibration
@@ -124,48 +133,54 @@ if __name__ == "__main__":
                             widest_box = boxes[i][2]
                             idx_widest = i
 
-                # extract normalized coordinates, confidence and object type
-                # the camera is preset to portrait mode, so we extract the coords and dims this way
-                y, x, h, w = boxes[idx_widest]
-                confidence = scores[idx_widest]
-                category = classes[idx_widest]
+                if idx_widest >= 0:
+                    # extract normalized coordinates, confidence and object type
+                    # the camera is preset to portrait mode, so we extract the coords and dims this way
+                    y, x, h, w = boxes[idx_widest]
+                    confidence = scores[idx_widest]
+                    category = classes[idx_widest]
 
-                #get exact pixel location of object:
-                width, height = 2028, 1520
-                pixel_x = x * width
-                pixel_y = y * height
-                pixel_w = w * width
-                pixel_h = h * height
+                    #get exact pixel location of object:
+                    width, height = 2028, 1520
+                    pixel_x = x * width
+                    pixel_y = y * height
+                    pixel_w = w * width
+                    pixel_h = h * height
 
-                #get coordinates of middle of object
-                u = float(pixel_x + (pixel_w/2))
-                v = float(pixel_y + (pixel_h/2))
-                w_coord = 1.0
+                    #get coordinates of middle of object
+                    u = float(pixel_x + (pixel_w/2))
+                    v = float(pixel_y + (pixel_h/2))
+                    w_coord = 1.0
 
-                #create array with pixel coordinates and convert to camera's coordinates
-                center_coords = np.array([u, v, w_coord], dtype=np.float64)
-                camera_vec = cam_mtx_inv.dot(center_coords)
-                camera_vec[0] = -camera_vec[0]
+                    #create array with pixel coordinates and convert to camera's coordinates
+                    center_coords = np.array([u, v, w_coord], dtype=np.float64)
+                    camera_vec = cam_mtx_inv.dot(center_coords)
+                    camera_vec[0] = -camera_vec[0]
 
-                #compute horizontal and vertical angles
-                azimuth = np.degrees(np.arctan2(camera_vec[0], 1)) * -1
-                elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
+                    #compute horizontal and vertical angles
+                    azimuth = np.degrees(np.arctan2(camera_vec[0], 1)) * -1
+                    elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
 
-                #compute distance based on IRL width of object
-                real_w_human = 0.5
-                focal_len = cam_mtx[0,0]*2
-                #print(f'focalx: {focal_len/2}, focaly: {cam_mtx[1,1]}')
-                distance = (real_w_human*focal_len)/float(pixel_w)
+                    #compute distance based on IRL width of object
+                    pixel_area = pixel_w*pixel_h
+                    real_w_human = 0.5
+                    real_h_human = 1.75
+                    real_area_human = real_w_human*real_h_human
 
-                target = (float(azimuth), float(elevation), float(distance))
+                    focal_lenx = cam_mtx[0,0]
+                    focal_leny = cam_mtx[1,1]
+                    focal_area = focal_lenx*focal_leny
+                    distance = (real_area_human*focal_area)/float(pixel_area)
 
-                print(f'Object of class {category} found with confidence {confidence:.2f}')
-                #print(f'Camera vector: {camera_vec}')
-                #print(f"Object at X: {x:.2f}, Y: {y:.2f} (Width: {pixel_w:.2f})")
-                print(f'Azimuth: {target[0]}, Elevation: {target[1]}, Distance: {target[2]}')
-                
-                #send target point to pipeline for audio
-                parent_conn.send(target)
+                    target = (float(azimuth), float(elevation), float(distance))
+
+                    print(f'Object of class {category} found with confidence {confidence:.2f}')
+                    #print(f'Camera vector: {camera_vec}')
+                    #print(f"Object at X: {x:.2f}, Y: {y:.2f} (Width: {pixel_w:.2f})")
+                    print(f'Azimuth: {target[0]}, Elevation: {target[1]}, Distance: {target[2]}')
+                    
+                    #send target point to pipeline for audio
+                    parent_conn.send(target)
             
                 print("-------------------------------------------")
 
