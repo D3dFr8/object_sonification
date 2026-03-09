@@ -1,5 +1,5 @@
 import numpy as np
-import angle
+import datatypes.angle as angle
 
 
 class Point:

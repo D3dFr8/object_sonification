@@ -1,6 +1,4 @@
 import numpy as np
-from point import *
-
 
 def projectPointOnSphere(p, radius, earPoint):
     dV = p - earPoint

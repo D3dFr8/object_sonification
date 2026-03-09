@@ -1,6 +1,6 @@
 from pysofaconventions import *
-from point import *
-import angle
+from datatypes.point import *
+import datatypes.angle
 import numpy as np
 import PointToIrNN
 import torch
@@ -12,9 +12,9 @@ def getSourcePositions():
     positions = sofa.getVariableValue('SourcePosition')
     positions_angle = positions.copy()
     
-    positions_angle[:,0] = [angle.createAngleFromDegrees(positions[i,0])
+    positions_angle[:,0] = [datatypes.angle.createAngleFromDegrees(positions[i,0])
                            for i in range(positions_angle.shape[0])]
-    positions_angle[:,1] = [angle.createAngleFromDegrees(positions[i,1])
+    positions_angle[:,1] = [datatypes.angle.createAngleFromDegrees(positions[i,1])
                            for i in range(positions_angle.shape[0])]
 
     return positions_angle

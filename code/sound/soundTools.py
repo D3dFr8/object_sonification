@@ -22,9 +22,6 @@ def playSound(yL,yR,sr):
     #column stack because sounddevice library requires c-contiguous memory blocks
     stereo = np.column_stack((yL,yR))
 
-    #normalize audio and reduce volume since converting to int can cause overflow
-    #stereo = stereo/np.max(np.abs(stereo))
-
     #set as C-contiguous array for the sake of the hardware
     stereo32 = np.ascontiguousarray(stereo, dtype=np.float32)
 

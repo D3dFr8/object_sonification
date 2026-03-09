@@ -1,18 +1,14 @@
 from picamera2.devices.imx500 import IMX500
 from picamera2 import Picamera2, Preview
 import numpy as np
-import cv2 as cv
 import time
-from pydub import AudioSegment
-import point
-import soundTools
-import loadHrir
-import getHRIR
-import angle
-import threading as th
-import asyncio
+import datatypes.point as point
+import sound.soundTools as st
+import sound.loadHrir as lH
+import sound.getHRIR as getHRIR
+import datatypes.angle
 from multiprocessing import Process, Pipe
-from point import *
+#from datatypes.point import *
 import matplotlib.pyplot as plt
 """
 Logga i en fil och köra med olika filter
@@ -56,8 +52,8 @@ def audio_process(conn, sr):
                     az, el, r = msg
 
                 #create target point
-                targetAz = angle.createAngleFromDegrees(az)
-                targetEl = angle.createAngleFromDegrees(el)
+                targetAz = datatypes.angle.createAngleFromDegrees(az)
+                targetEl = datatypes.angle.createAngleFromDegrees(el)
                 targetR = r
                 target_point = point.createPointFromSph(targetAz,targetEl,targetR)
 
@@ -65,10 +61,10 @@ def audio_process(conn, sr):
                 #calculate HRIR, convolve, and play sound
                 chirp = create_chirp(200, 400, 0.03*targetR, sr, 0.3)
                 hL,hR = getHRIR.getHrirAtTarget(target_point, 0.1)
-                yL = soundTools.conv(chirp,hL).tolist()
-                yR = soundTools.conv(chirp,hR).tolist()
+                yL = st.conv(chirp,hL).tolist()
+                yR = st.conv(chirp,hR).tolist()
 
-                soundTools.playSound(yL,yR,sr)
+                st.playSound(yL,yR,sr)
 
             except EOFError:
                 print("End of file error, something unexpected happened")
@@ -79,8 +75,8 @@ def audio_process(conn, sr):
 #--------------------------------------------------#
 if __name__ == "__main__":
     #init audio
-    hrirSr = loadHrir.getSamplingRate()
-    #audio, sr = soundTools.loadMP3('snap.mp3', hrirSr)
+    hrirSr = lH.getSamplingRate()
+    #audio, sr = st.loadMP3('snap.mp3', hrirSr)
 
     #chirp = create_chirp(200, 400, 0.07, hrirSr, 0.5)
     parent_conn, child_conn = Pipe()

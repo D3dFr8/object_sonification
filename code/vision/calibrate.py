@@ -23,7 +23,8 @@ trainimgpoints = [] # 2d points in image plane.
 #filename = os.path.join(dirname, '/images')
 
 #print(dirname)
-images = glob.glob('/home/pi2/Documents/exjobb/tqet33-exjobb/code/imagesForCalib/*.jpg')
+path = os.path.abspath(os.getcwd())
+images = glob.glob(path+'../imagesForCalib/*.jpg')
 random.shuffle(images)
 
 split_idx = int(len(images)*0.8)
@@ -67,7 +68,7 @@ results = {
     "translation vector": tvecs
 }
 
-np.save("calib_results.npy", results)
+#np.save("calib_results.npy", results) #only if we want
 """
 img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/test.jpg')
 h,  w = img.shape[:2]
