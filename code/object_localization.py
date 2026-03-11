@@ -6,7 +6,7 @@ import datatypes.point as point
 import sound.soundTools as st
 import sound.loadHrir as lH
 import sound.getHRIR as getHRIR
-import datatypes.angle
+import datatypes.angle as angle
 from multiprocessing import Process, Pipe
 #from datatypes.point import *
 import matplotlib.pyplot as plt
@@ -52,8 +52,8 @@ def audio_process(conn, sr):
                     az, el, r = msg
 
                 #create target point
-                targetAz = datatypes.angle.createAngleFromDegrees(az)
-                targetEl = datatypes.angle.createAngleFromDegrees(el)
+                targetAz = angle.createAngleFromDegrees(az)
+                targetEl = angle.createAngleFromDegrees(el)
                 targetR = r
                 target_point = point.createPointFromSph(targetAz,targetEl,targetR)
 

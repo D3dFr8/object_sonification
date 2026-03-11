@@ -1,10 +1,10 @@
-import loadHrir
-import interpolateHrir
+import sound.loadHrir as loadHrir
+import sound.interpolateHrir as interpolateHrir
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
-import attenuation
-import soundTools
+import sound.attenuation as attenuation
+import sound.soundTools as soundTools
 
 
 hrir = loadHrir.getImpulseResponses()

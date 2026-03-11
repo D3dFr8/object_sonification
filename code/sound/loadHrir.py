@@ -1,10 +1,10 @@
 from pysofaconventions import *
 from datatypes.point import *
-import datatypes.angle
+import datatypes.angle as angle
 import numpy as np
-import PointToIrNN
+import sound.PointToIrNN as PointToIrNN
 import torch
-path = 'mit_kemar_normal_pinna.sofa'
+path = 'sound/mit_kemar_normal_pinna.sofa'
 
 sofa = SOFAFile(path,'r')
 
@@ -12,9 +12,9 @@ def getSourcePositions():
     positions = sofa.getVariableValue('SourcePosition')
     positions_angle = positions.copy()
     
-    positions_angle[:,0] = [datatypes.angle.createAngleFromDegrees(positions[i,0])
+    positions_angle[:,0] = [angle.createAngleFromDegrees(positions[i,0])
                            for i in range(positions_angle.shape[0])]
-    positions_angle[:,1] = [datatypes.angle.createAngleFromDegrees(positions[i,1])
+    positions_angle[:,1] = [angle.createAngleFromDegrees(positions[i,1])
                            for i in range(positions_angle.shape[0])]
 
     return positions_angle
