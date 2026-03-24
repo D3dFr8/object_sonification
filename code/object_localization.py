@@ -157,7 +157,7 @@ if __name__ == "__main__":
                     azimuth = np.degrees(np.arctan2(camera_vec[0], 1)) * -1
                     elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
 
-                    #compute distance based on IRL width of object
+                    #compute distance based on IRL area of object
                     pixel_area = pixel_w*pixel_h
                     real_w_human = 0.5
                     real_h_human = 1.75

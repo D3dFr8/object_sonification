@@ -16,8 +16,8 @@ sq_size = 40
 objp[:,:2] = np.mgrid[0:13,0:9].T.reshape(-1,2) * sq_size
 
 # Arrays to store object points and image points from all the images.
-trainobjpoints = [] # 3d point in real world space
-trainimgpoints = [] # 2d points in image plane.
+objpoints = [] # 3d point in real world space
+imgpoints = [] # 2d points in image plane.
 
 #dirname = os.path.dirname(__file__)
 #filename = os.path.join(dirname, '/images')
@@ -42,10 +42,10 @@ for fname in train_imgs:
 
     # If found, add object points, image points (after refining them)
     if ret == True:
-        trainobjpoints.append(objp)
+        objpoints.append(objp)
 
         corners2 = cv.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
-        trainimgpoints.append(corners2)
+        imgpoints.append(corners2)
 
         # Draw and display the corners
         #cv.drawChessboardCorners(img, (13,9), corners2, ret)
@@ -56,7 +56,7 @@ for fname in train_imgs:
 
 #cv.destroyAllWindows()
 
-ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(trainobjpoints, trainimgpoints, 
+ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, 
                                 gray.shape[::-1], None, None, 
                                 flags=cv.CALIB_FIX_K3) #remove k3, extraneous distortion parameter
 
@@ -85,12 +85,12 @@ cv.imwrite('imageAfter.png', dst)
 
 #calculate re-projection (training) error
 mean_error = 0
-for i in range(len(trainobjpoints)):
-    trainimgpoints2, _ = cv.projectPoints(trainobjpoints[i], rvecs[i], tvecs[i], mtx, dist)
-    error = cv.norm(trainimgpoints[i], trainimgpoints2, cv.NORM_L2)/len(trainimgpoints2)
+for i in range(len(objpoints)):
+    imgpoints2, _ = cv.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+    error = cv.norm(imgpoints[i], imgpoints2, cv.NORM_L2)/len(imgpoints2)
     mean_error += error
 
-print( "re-projection error: {}".format(mean_error/len(trainobjpoints)) )
+print( "re-projection error: {}".format(mean_error/len(objpoints)) )
 
 
 #---------- validation ----------#
