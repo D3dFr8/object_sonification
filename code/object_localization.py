@@ -74,8 +74,19 @@ def audio_process(conn, sr):
 #------------------MAIN CAMERA LOOP----------------#
 #--------------------------------------------------#
 if __name__ == "__main__":
+    #load category file
+    file_path = 'categories.txt'
+    with open(file_path, 'r') as file:
+        categories = file.readlines()
+    
+    #load dimensions file
+    file_path = 'dims.txt'
+    with open(file_path, 'r') as file:
+        dims = file.readlines()
+
     #init audio
     hrirSr = lH.getSamplingRate()
+    print(hrirSr)
     #audio, sr = st.loadMP3('snap.mp3', hrirSr)
 
     #chirp = create_chirp(200, 400, 0.07, hrirSr, 0.5)
@@ -119,22 +130,23 @@ if __name__ == "__main__":
                 #extract the boxes, confidence scores, and object types from detected objects
                 boxes, scores, classes = objects[0], objects[1], objects[2]
                 
-                idx_widest = -1
-                widest_box = 0
+                idx_biggest = -1
+                biggest_box = 0
                 #minimum confidence for an object to be considered
                 threshold = 0.5
                 for i in range(len(boxes)):
-                    if scores[i] > threshold and classes[i] == 0:
-                        if boxes[i][2] > widest_box:
-                            widest_box = boxes[i][2]
-                            idx_widest = i
+                    if scores[i] > threshold:# and classes[i] == 0:
+                        area = boxes[i][2]*boxes[i][3]
+                        if area > biggest_box:
+                            biggest_box = area
+                            idx_biggest = i
 
-                if idx_widest >= 0:
+                if idx_biggest >= 0:
                     # extract normalized coordinates, confidence and object type
                     # the camera is preset to portrait mode, so we extract the coords and dims this way
-                    y, x, h, w = boxes[idx_widest]
-                    confidence = scores[idx_widest]
-                    category = classes[idx_widest]
+                    y, x, h, w = boxes[idx_biggest]
+                    confidence = scores[idx_biggest]
+                    class_i = int(classes[idx_biggest])
 
                     #get exact pixel location of object:
                     width, height = 2028, 1520
@@ -153,20 +165,29 @@ if __name__ == "__main__":
                     camera_vec = cam_mtx_inv.dot(center_coords)
                     camera_vec[0] = -camera_vec[0]
 
-                    #compute horizontal and vertical angles
-                    azimuth = np.degrees(np.arctan2(camera_vec[0], 1)) * -1
-                    elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
-
+                    #extract class name from index together with dimensions
+                    category = categories[class_i][:-1]
+                    dimensions = dims[class_i]
+                    real_w = 1
+                    real_h = 1
+                    if '-' not in dimensions:
+                        real_w = float(dimensions[:4])
+                        real_h = float(dimensions[5:9])
+                        
+                    #print(real_w)
+                    #print(real_h)
                     #compute distance based on IRL area of object
                     pixel_area = pixel_w*pixel_h
-                    real_w_human = 0.5
-                    real_h_human = 1.75
-                    real_area_human = real_w_human*real_h_human
+                    real_area = real_w*real_h
 
                     focal_lenx = cam_mtx[0,0]
                     focal_leny = cam_mtx[1,1]
                     focal_area = focal_lenx*focal_leny
-                    distance = (real_area_human*focal_area)/float(pixel_area)
+                    distance = (real_area*focal_area)/float(pixel_area)
+
+                    #compute horizontal and vertical angles
+                    azimuth = np.degrees(np.arctan2(camera_vec[0], distance)) * -1
+                    elevation = np.degrees(np.arctan2(camera_vec[1], distance)) * -1
 
                     target = (float(azimuth), float(elevation), float(distance))
 
