@@ -3,7 +3,6 @@ import cv2 as cv
 import glob
 import random
 import os
-import json
 
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -24,7 +23,7 @@ imgpoints = [] # 2d points in image plane.
 
 #print(dirname)
 path = os.path.abspath(os.getcwd())
-images = glob.glob(path+'../imagesForCalib/*.jpg')
+images = glob.glob(path+'/imagesForCalib/*.jpg')
 random.shuffle(images)
 
 split_idx = int(len(images)*0.8)
@@ -68,7 +67,7 @@ results = {
     "translation vector": tvecs
 }
 
-#np.save("calib_results.npy", results) #only if we want
+#np.save("calib_results.npy", results)
 """
 img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/test.jpg')
 h,  w = img.shape[:2]

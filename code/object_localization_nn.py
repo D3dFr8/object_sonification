@@ -10,21 +10,14 @@ import datatypes.angle as angle
 from multiprocessing import Process, Pipe
 #from datatypes.point import *
 import matplotlib.pyplot as plt
+from datatypes.chirp import Chirp
 """
-Logga i en fil och köra med olika filter
+Framtiden: Logga i en fil och köra med olika filter
+20 min halvtidspresentation. Målgrupp: andra studenter
 """
-
-#----------------------------------------------#
-#-----------------CHIRP GENERATOR--------------#
-#----------------------------------------------#
-def create_chirp(Fs, Fe, duration, sample_rate, amp):
-    #create a time sequence
-    t = np.linspace(0, duration, int(sample_rate * duration), endpoint=True)
-    k = (Fe - Fs) / duration  # sweep rate (Hz/s)
-    #compute phase
-    phase = 2 * np.pi * (Fs * t + 0.5 * k * t**2)
-    signal = amp * np.sin(phase)
-    return signal
+#init chirp
+sr = lH.getSamplingRate()
+chirp = Chirp(200, 400, 0.03, sr, 0.3)
 
 #----------------------------------------------#
 #-----------------AUDIO HANDLER----------------#
@@ -57,12 +50,14 @@ def audio_process(conn, sr):
                 targetR = r
                 target_point = point.createPointFromSph(targetAz,targetEl,targetR)
 
-                #create chirp with duration scaled with distance
+                #update length of chirp with duration scaled with distance
                 #calculate HRIR, convolve, and play sound
-                chirp = create_chirp(200, 400, 0.03*targetR, sr, 0.3)
+                chirp.create_signal(targetR)
+                signal = chirp.get_signal()
+                
                 hL,hR = getHRIR.getHrirAtTarget(target_point, 0.1)
-                yL = st.conv(chirp,hL).tolist()
-                yR = st.conv(chirp,hR).tolist()
+                yL = st.conv(signal,hL).tolist()
+                yR = st.conv(signal,hR).tolist()
 
                 st.playSound(yL,yR,sr)
 
@@ -84,14 +79,8 @@ if __name__ == "__main__":
     with open(file_path, 'r') as file:
         dims = file.readlines()
 
-    #init audio
-    hrirSr = lH.getSamplingRate()
-    print(hrirSr)
-    #audio, sr = st.loadMP3('snap.mp3', hrirSr)
-
-    #chirp = create_chirp(200, 400, 0.07, hrirSr, 0.5)
     parent_conn, child_conn = Pipe()
-    p = Process(target=audio_process, args=(child_conn, hrirSr))
+    p = Process(target=audio_process, args=(child_conn, sr))
     p.start()
 
     #get dictionary with results from the calibration
@@ -165,7 +154,7 @@ if __name__ == "__main__":
                     camera_vec = cam_mtx_inv.dot(center_coords)
                     camera_vec[0] = -camera_vec[0]
 
-                    #extract class name from index together with dimensions
+                    #extract class name and dimensions from index
                     category = categories[class_i][:-1]
                     dimensions = dims[class_i]
                     real_w = 1
