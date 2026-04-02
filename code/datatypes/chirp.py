@@ -24,6 +24,9 @@ class Chirp:
     def get_signal(self):
         return self.signal
 
+    def set_len(self, new_len):
+        self.len = new_len
+
     def create_signal(self, scale_factor):
         length = self.len*scale_factor
         t = np.linspace(0, length, int(self.sr * length), endpoint=True)

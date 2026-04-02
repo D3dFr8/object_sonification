@@ -17,7 +17,7 @@ Framtiden: Logga i en fil och köra med olika filter
 """
 #init chirp
 sr = lH.getSamplingRate()
-chirp = Chirp(200, 400, 0.03, sr, 0.3)
+chirp = Chirp(200, 400, 0.05, sr, 0.3)
 
 #----------------------------------------------#
 #-----------------AUDIO HANDLER----------------#
@@ -174,6 +174,13 @@ if __name__ == "__main__":
                     focal_area = focal_lenx*focal_leny
                     distance = (real_area*focal_area)/float(pixel_area)
 
+                    #if real_area < 0.5:
+                     #   chirp.set_len(0.4)
+                    
+                    if real_area < 0.15:
+                        chirp.set_len(2)
+
+                    #print(f"len: {chirp.get_len()}, area: {real_area}")
                     #compute horizontal and vertical angles
                     azimuth = np.degrees(np.arctan2(camera_vec[0], distance)) * -1
                     elevation = np.degrees(np.arctan2(camera_vec[1], distance)) * -1
