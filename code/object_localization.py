@@ -15,23 +15,91 @@ import sys
 import os
 import cv2 as cv
 import glob
+from scipy.signal import lfilter
+import sounddevice as sd
 
 """
 Framtiden: Logga i en fil och köra med olika filter
-20 min halvtidspresentation. Målgrupp: andra studenter
 """
 #init chirp
 sr = lH.getSamplingRate()
-chirp = Chirp(200, 400, 0.05, sr, 0.3)
+chirp = Chirp(400, 400, 1/30, sr, 0.2)
 
 #----------------------------------------------#
 #-----------------AUDIO HANDLER----------------#
 #----------------------------------------------#
 def audio_process(conn, sr):
-    while True:
-        #returns True if there is data in pipeline. Block for 50 ms
-        if conn.poll():
-            try:
+    #A class to keep track of the state of different key variables for the audio process
+    #such as HRIR and filter memory
+    class State:
+        hL = np.zeros(512) #default HRIR (basically nothing)
+        hL[0] = 1
+        hR = np.zeros(512)
+        hR[0] = 1
+        dist = 1
+        time_since_last_detection = time.time()
+        tracking = False
+        ziL = None #memory for gapless filter
+        ziR = None
+        phase = 0
+
+    state = State()
+
+    #real time audio generator
+    #frames is updated through the hardware interrupt performed by the DAC
+    def callback(output, frames, time_info, status):
+        #give the signal to stop playing sound if object has been gone for more than 0.5 second
+        if time.time() - state.time_since_last_detection > 0.5:
+            state.tracking = False
+        
+        #if no object has been found, 
+        if not state.tracking:
+            output.fill(0)
+            state.phase = 0
+            return
+        
+        #initialize memory for gapless filter if HRIR length changes
+        if state.ziL is None or len(state.ziL) != len(state.hL) - 1:
+            state.ziL = np.zeros(len(state.hL) - 1)
+            state.ziR = np.zeros(len(state.hR) - 1)
+
+        #generate hum with sawtooth wave:
+        t = np.arange(frames)/sr
+        f = 300
+
+        current_t = t+state.phase
+        #reduce volume with distance. Do not change volume closer than 50 cm
+        vol = min(1, 0.8/max(state.dist, 0.5))
+        hum = vol*2*(f*current_t - np.floor(f*current_t + 0.5))
+        state.phase += (frames/sr)
+
+        #create new gapless filter based on previous and update memory
+        #this is to ensure that the sound plays smoothly and doesn't click at the end of every audio chunk
+        yL, state.ziL = lfilter(state.hL, [1.0], hum, zi=state.ziL)
+        yR, state.ziR = lfilter(state.hR, [1.0], hum, zi=state.ziR)
+
+        #max_val = max(np.max(np.abs(yL)), np.max(np.abs(yR)))
+        #if max_val > 0:
+         #   yL = yL/max_val
+          #  yR = yR/max_val
+
+        #send to DAC HAT
+        stereo = np.column_stack((yL, yR))
+        output[:] = np.ascontiguousarray(stereo, dtype=np.float32)
+
+    #start the stream out to the hardware
+    stream = sd.OutputStream(
+        samplerate=sr,
+        channels=2,
+        dtype='float32',
+        callback=callback
+    )
+    stream.start()
+
+    try:
+        while True:
+            #returns True if there is data in pipeline. Block for 50 ms
+            if conn.poll(0.05):
                 #extract latest pipeline data
                 msg = conn.recv()
 
@@ -39,15 +107,16 @@ def audio_process(conn, sr):
                 if msg == False:
                     print("Audio process exiting")
                     break
-                
-                #extract coords
-                az, el, r = msg
 
                 #drain pipeline of all older messages
                 while conn.poll():
                     msg = conn.recv()
-                    if msg == False: return
-                    az, el, r = msg
+                    if msg == False:
+                        stream.stop()
+                        return
+
+                #extract coords
+                az, el, r = msg
 
                 #create target point
                 targetAz = angle.createAngleFromDegrees(az)
@@ -55,26 +124,34 @@ def audio_process(conn, sr):
                 targetR = r
                 target_point = point.createPointFromSph(targetAz,targetEl,targetR)
 
-                #update length of chirp with duration scaled with distance
-                #calculate HRIR, convolve, and play sound
-                chirp.create_signal(targetR)
-                signal = chirp.get_signal()
+                #calculate HRIR
+                hL_new,hR_new = getHRIR.getHrirAtTarget(target_point, 0.1)
+
+                #normalize HRIR filters
+                max_val = max(np.max(np.abs(hL_new)), np.max(np.abs(hR_new)))
+                if max_val > 0:
+                    hL_new = hL_new/max_val
+                    hR_new = hR_new/max_val
                 
-                hL,hR = getHRIR.getHrirAtTarget(target_point, 0.1)
-                yL = st.conv(signal,hL).tolist()
-                yR = st.conv(signal,hR).tolist()
+                #update states
+                state.hL = hL_new
+                state.hR = hR_new
+                state.dist = targetR
+                state.time_since_last_detection = time.time()
+                state.tracking = True
 
-                st.playSound(yL,yR,sr)
-
-            except EOFError:
-                print("End of file error, something unexpected happened")
-                break
+    finally:
+        stream.stop()
+        stream.close()
 
 #--------------------------------------------------#
 #------------------MAIN CAMERA LOOP----------------#
 #--------------------------------------------------#
 if __name__ == "__main__":
-    localization_type = sys.argv[1]
+    localization_type = "col"
+    if len(sys.argv) > 1:
+        localization_type = sys.argv[1]
+
     path = os.path.abspath(os.getcwd())
     
     #load category file
@@ -191,8 +268,11 @@ if __name__ == "__main__":
                         #if real_area < 0.5:
                         #   chirp.set_len(0.4)
                         
-                        if real_area < 0.15:
-                            chirp.set_len(2)
+                        #if real_area < 0.15:
+                         #   chirp.set_len(2)
+
+                        #if real_area < 0.09:
+                         #   chirp.set_len(20)
 
                         #print(f"len: {chirp.get_len()}, area: {real_area}")
 
@@ -210,23 +290,50 @@ if __name__ == "__main__":
 
                 time.sleep(0.01)
                 
-        else:
-            lower_pink = np.array([144, 64, 16])
-            upper_pink = np.array([162, 255, 255])
+        elif localization_type == "col":
+            lower_red1 = np.array([0, 50, 16])
+            upper_red1 = np.array([10, 255, 255])
+
+            lower_orange = np.array([15, 50, 16])
+            upper_orange = np.array([25, 255, 255])
+
+            lower_yellow = np.array([25, 50, 16])
+            upper_yellow = np.array([35, 255, 255])
+
+            lower_green = np.array([40, 50, 16])
+            upper_green = np.array([70, 255, 255])
+
+            lower_turqoise = np.array([70, 50, 16])
+            upper_turqoise = np.array([90, 255, 255])
+
+            lower_lightblue = np.array([90, 50, 16])
+            upper_lightblue = np.array([100, 255, 255])
+
+            lower_blue = np.array([100, 50, 16])
+            upper_blue = np.array([110, 255, 255])
+
+            lower_marine = np.array([110, 50, 16])
+            upper_marine = np.array([130, 255, 255])
+
+            lower_purple = np.array([130, 50, 16])
+            upper_purple = np.array([150, 255, 255])
             
-            lower_yellow = np.array([18, 64, 16])
-            upper_yellow = np.array([36, 255, 255])
+            lower_pink = np.array([150, 50, 16])
+            upper_pink = np.array([165, 255, 255])
+
+            lower_red2 = np.array([170, 50, 16])
+            upper_red2 = np.array([180, 255, 255])
             
-            real_w = 0.20
-            real_h = 0.35
-            real_area = real_w*real_h
+            balloon_w = 0.20
+            balloon_h = 0.35
+            real_area = balloon_w*balloon_h
             
             while True:
                 img = picam.capture_array()
                 
                 #convert from BGR to HSV (hue, saturation, value) color space
                 hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
-                
+
                 #create mask and kernel
                 mask = cv.inRange(hsv, lower_pink, upper_pink)
                 kernel = np.ones((13, 13), np.uint8)
@@ -238,10 +345,10 @@ if __name__ == "__main__":
                 #find contours of the parts corresponding to the color chosen
                 contours, _ = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
                 
-                #minimum pixel area of object to consider (100x100 size)
-                MIN_AREA = 10000
+                #minimum pixel area of object to consider (10x10 size)
+                MIN_AREA = 400
                 
-                #filter contours to only include those larger than 100x100 pixels
+                #filter contours to only include those larger than 10x10 pixels
                 filtered_contours = []
                 for contour in contours:
                     if cv.contourArea(contour) > MIN_AREA:
@@ -278,8 +385,11 @@ if __name__ == "__main__":
 
                     distance = np.sqrt((real_area*focal_area)/float(pixel_area))
 
-                    if real_area < 0.15:
-                        chirp.set_len(2)
+                    #if real_area < 0.15:
+                     #   chirp.set_len(2)
+
+                    #if real_area < 0.09:
+                     #   chirp.set_len(20)
 
                     #print(f"len: {chirp.get_len()}, area: {real_area}")
 
