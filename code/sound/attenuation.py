@@ -7,11 +7,11 @@ def computeAbsorptionCoefficient(f):
     fr0 = (24 + 4.04e4*h*(0.02+h)/(0.391+h))
 
     frN = 9+280*h
-    term2 = 1
-    term0 = 0.01275*(np.exp(-3352/T))/(fr0+(f**2/fr0))
+    A = 1
+    term0 = 0.01275*(np.exp(-2239.1/T))/(fr0+(f**2/fr0))
     termN = 0.1068*(np.exp(-3352/T))/(frN+(f**2/frN))
 
-    alpha = 8.686 * f **2 *((1.84e-11) + term2 * term0 * termN)
+    alpha = 8.686 * f **2 *((1.84e-11) + A * (term0 + termN))
 
     return alpha
 

@@ -99,6 +99,10 @@ if __name__ == "__main__":
     distortion = calib_results.item()["distortion coeff"]
     cam_mtx_inv = np.linalg.inv(cam_mtx)
 
+    focal_lenx = cam_mtx[0,0]
+    focal_leny = cam_mtx[1,1]
+    focal_area = focal_lenx*focal_leny
+        
     #init camera
     picam = Picamera2()
     model = "/usr/share/imx500-models/imx500_network_ssd_mobilenetv2_fpnlite_320x320_pp.rpk"
@@ -115,11 +119,7 @@ if __name__ == "__main__":
     picam.start()
 
     print("Camera started, precc Ctrl+C to stop")
-    try:
-        focal_lenx = cam_mtx[0,0]
-        focal_leny = cam_mtx[1,1]
-        focal_area = focal_lenx*focal_leny
-        
+    try:        
         if localization_type == "nn":
             while True:
                 #get metadata from camera
@@ -167,6 +167,10 @@ if __name__ == "__main__":
                         camera_vec = cam_mtx_inv.dot(center_coords)
                         camera_vec[0] = -camera_vec[0]
 
+                        #compute horizontal and vertical angles
+                        azimuth = np.degrees(np.arctan2(camera_vec[0], 1)) * -1
+                        elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
+                        
                         #extract class name and dimensions from index
                         category = categories[class_i][:-1]
                         dimensions = dims[class_i]
@@ -191,9 +195,6 @@ if __name__ == "__main__":
                             chirp.set_len(2)
 
                         #print(f"len: {chirp.get_len()}, area: {real_area}")
-                        #compute horizontal and vertical angles
-                        azimuth = np.degrees(np.arctan2(camera_vec[0], 1)) * -1
-                        elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
 
                         target = (float(azimuth), float(elevation), float(distance))
 
@@ -208,11 +209,15 @@ if __name__ == "__main__":
                     print("-------------------------------------------")
 
                 time.sleep(0.01)
+                
         else:
+            lower_pink = np.array([144, 64, 16])
+            upper_pink = np.array([162, 255, 255])
+            
             lower_yellow = np.array([18, 64, 16])
             upper_yellow = np.array([36, 255, 255])
             
-            real_w = 0.35
+            real_w = 0.20
             real_h = 0.35
             real_area = real_w*real_h
             
@@ -223,20 +228,20 @@ if __name__ == "__main__":
                 hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
                 
                 #create mask and kernel
-                yellow_mask = cv.inRange(hsv, lower_yellow, upper_yellow)
+                mask = cv.inRange(hsv, lower_pink, upper_pink)
                 kernel = np.ones((13, 13), np.uint8)
                 
                 #clean up noise using morphology (erosion and dilation)
-                yellow_mask = cv.morphologyEx(yellow_mask, cv.MORPH_OPEN, kernel)
-                yellow_mask = cv.morphologyEx(yellow_mask, cv.MORPH_CLOSE, kernel)
-                
-                #minimum pixel area of object to consider (20x20 size)
-                MIN_AREA = 400
+                mask = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
+                mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel)
 
-                #find contours of the yellow parts
-                contours, _ = cv.findContours(yellow_mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                #find contours of the parts corresponding to the color chosen
+                contours, _ = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
                 
-                #filter contours to only include those larger than 20x20 pixels
+                #minimum pixel area of object to consider (100x100 size)
+                MIN_AREA = 10000
+                
+                #filter contours to only include those larger than 100x100 pixels
                 filtered_contours = []
                 for contour in contours:
                     if cv.contourArea(contour) > MIN_AREA:
@@ -265,6 +270,10 @@ if __name__ == "__main__":
                     center_coords = np.array([u, v, w_coord], dtype=np.float64)
                     camera_vec = cam_mtx_inv.dot(center_coords)
                     
+                    #compute horizontal and vertical angles
+                    azimuth = np.degrees(np.arctan2(camera_vec[0], 1)) * -1
+                    elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
+                    
                     pixel_area = w*h
 
                     distance = np.sqrt((real_area*focal_area)/float(pixel_area))
@@ -273,26 +282,20 @@ if __name__ == "__main__":
                         chirp.set_len(2)
 
                     #print(f"len: {chirp.get_len()}, area: {real_area}")
-                    #compute horizontal and vertical angles
-                    azimuth = np.degrees(np.arctan2(camera_vec[0], 1)) * -1
-                    elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
 
                     target = (float(azimuth), float(elevation), float(distance))
 
-                    print(f'An object of color yellow was found!')
+                    print(f'An object of color pink was found!')
                     #print(f'Camera vector: {camera_vec}')
                     #print(f"Object at X: {x:.2f}, Y: {y:.2f} (Width: {pixel_w:.2f})")
                     print(f'Azimuth: {target[0]}, Elevation: {target[1]}, Distance: {target[2]}')
                         
                     #send target point to pipeline for audio
                     parent_conn.send(target)
-                    
-                    os.remove(path+'/imagesForSeg/frame.jpg')
                 
                 print("-------------------------------------------")
                     
                 time.sleep(0.01)
-            
 
     except KeyboardInterrupt:
         parent_conn.send(False)
