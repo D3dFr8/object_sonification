@@ -23,32 +23,34 @@ Framtiden: Logga i en fil och köra med olika filter
 """
 #init chirp
 sr = lH.getSamplingRate()
-chirp = Chirp(400, 400, 1/30, sr, 0.2)
+#chirp = Chirp(400, 400, 1/30, sr, 0.2)
+
+#A class to keep track of the state of different key variables for the audio process
+#such as HRIR and filter memory
+class State:
+    hL = np.zeros(512) #default HRIR (basically nothing)
+    hL[0] = 1
+    hR = np.zeros(512)
+    hR[0] = 1
+    dist = 1
+    time_since_last_detection = time.time() #+ 99999.0
+    tracking = False
+    ziL = None #memory for gapless filter
+    ziR = None
+    phase = 0
+
+state = State()
 
 #----------------------------------------------#
 #-----------------AUDIO HANDLER----------------#
 #----------------------------------------------#
 def audio_process(conn, sr):
-    #A class to keep track of the state of different key variables for the audio process
-    #such as HRIR and filter memory
-    class State:
-        hL = np.zeros(512) #default HRIR (basically nothing)
-        hL[0] = 1
-        hR = np.zeros(512)
-        hR[0] = 1
-        dist = 1
-        time_since_last_detection = time.time()
-        tracking = False
-        ziL = None #memory for gapless filter
-        ziR = None
-        phase = 0
-
-    state = State()
 
     #real time audio generator
     #frames is updated through the hardware interrupt performed by the DAC
     def callback(output, frames, time_info, status):
-        #give the signal to stop playing sound if object has been gone for more than 0.5 second
+        #give the signal to stop playing sound if object has been gone for more than 0.5 seconds
+        #print(state.tracking)
         if time.time() - state.time_since_last_detection > 0.5:
             state.tracking = False
         
@@ -56,6 +58,8 @@ def audio_process(conn, sr):
         if not state.tracking:
             output.fill(0)
             state.phase = 0
+            ziL = None
+            ziR = None
             return
         
         #initialize memory for gapless filter if HRIR length changes
@@ -65,11 +69,11 @@ def audio_process(conn, sr):
 
         #generate hum with sawtooth wave:
         t = np.arange(frames)/sr
-        f = 300
+        f = 100
 
         current_t = t+state.phase
-        #reduce volume with distance. Do not change volume closer than 50 cm
-        vol = min(1, 0.8/max(state.dist, 0.5))
+        #reduce volume with distance. Do not change volume closer than 40 cm
+        vol = min(0.4, 0.3/max(state.dist, 0.3))
         hum = vol*2*(f*current_t - np.floor(f*current_t + 0.5))
         state.phase += (frames/sr)
 
@@ -82,7 +86,7 @@ def audio_process(conn, sr):
         #if max_val > 0:
          #   yL = yL/max_val
           #  yR = yR/max_val
-
+        
         #send to DAC HAT
         stereo = np.column_stack((yL, yR))
         output[:] = np.ascontiguousarray(stereo, dtype=np.float32)
@@ -128,10 +132,11 @@ def audio_process(conn, sr):
                 hL_new,hR_new = getHRIR.getHrirAtTarget(target_point, 0.1)
 
                 #normalize HRIR filters
-                max_val = max(np.max(np.abs(hL_new)), np.max(np.abs(hR_new)))
-                if max_val > 0:
-                    hL_new = hL_new/max_val
-                    hR_new = hR_new/max_val
+                energy_val = max(np.sum(np.abs(hL_new)), np.sum(np.abs(hR_new)))
+                #max_val = max(np.max(np.abs(hL_new)), np.max(np.abs(hR_new)))
+                if energy_val > 0:
+                    hL_new = hL_new/energy_val
+                    hR_new = hR_new/energy_val
                 
                 #update states
                 state.hL = hL_new
@@ -139,6 +144,7 @@ def audio_process(conn, sr):
                 state.dist = targetR
                 state.time_since_last_detection = time.time()
                 state.tracking = True
+
 
     finally:
         stream.stop()
@@ -195,6 +201,7 @@ if __name__ == "__main__":
     picam.start_preview(Preview.QTGL)
     picam.start()
 
+    time.sleep(3)
     print("Camera started, precc Ctrl+C to stop")
     try:        
         if localization_type == "nn":
@@ -325,7 +332,7 @@ if __name__ == "__main__":
             upper_red2 = np.array([180, 255, 255])
             
             balloon_w = 0.20
-            balloon_h = 0.35
+            balloon_h = 0.20
             real_area = balloon_w*balloon_h
             
             while True:
@@ -395,11 +402,11 @@ if __name__ == "__main__":
 
                     target = (float(azimuth), float(elevation), float(distance))
 
-                    print(f'An object of color pink was found!')
+                    #print(f'An object of color pink was found!')
                     #print(f'Camera vector: {camera_vec}')
                     #print(f"Object at X: {x:.2f}, Y: {y:.2f} (Width: {pixel_w:.2f})")
                     print(f'Azimuth: {target[0]}, Elevation: {target[1]}, Distance: {target[2]}')
-                        
+                    
                     #send target point to pipeline for audio
                     parent_conn.send(target)
                 

@@ -13,11 +13,14 @@ def projectPointOnSphere(p, radius, earPoint):
     return newPoint
 
 def interpolationWeights(points, target):
-    weights = np.zeros_like(points)
-    for i in range(0,np.size(points)):
+    #weights = np.zeros_like(points)
+    weights = np.zeros(len(points), dtype=float)
+
+    for i in range(0,len(points)):#np.size(points)):
         distance = (points[i] - target).norm()
         if (distance == 0):
-            weights = np.zeros_like(points)
+            #weights = np.zeros_like(points)
+            weights = np.zeros(len(points), dtype=float)
             weights[i] = 1
             return weights
         weights[i] = 1 / distance
