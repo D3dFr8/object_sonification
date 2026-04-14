@@ -58,8 +58,8 @@ def audio_process(conn, sr):
         if not state.tracking:
             output.fill(0)
             state.phase = 0
-            ziL = None
-            ziR = None
+            state.ziL = None
+            state.ziR = None
             return
         
         #initialize memory for gapless filter if HRIR length changes
@@ -73,7 +73,7 @@ def audio_process(conn, sr):
 
         current_t = t+state.phase
         #reduce volume with distance. Do not change volume closer than 40 cm
-        vol = min(0.4, 0.3/max(state.dist, 0.3))
+        vol = 0.3#min(0.4, 0.3/max(state.dist, 0.3))
         hum = vol*2*(f*current_t - np.floor(f*current_t + 0.5))
         state.phase += (frames/sr)
 
@@ -221,7 +221,7 @@ if __name__ == "__main__":
                     #minimum confidence for an object to be considered
                     threshold = 0.5
                     for i in range(len(boxes)):
-                        if scores[i] > threshold:# and classes[i] == 0:
+                        if scores[i] > threshold and classes[i] == 0:
                             area = boxes[i][2]*boxes[i][3]
                             if area > biggest_box:
                                 biggest_box = area
