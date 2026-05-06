@@ -70,7 +70,7 @@ def getHrirAtTarget(targetPoint, r0):
     hL = np.array(np.sum(hLs, axis=0))
     hR = np.array(np.sum(hRs, axis=0))
 
-    hAtt = np.real(attenuation.createAbsorptionFilter(alpha, targetPoint.r, r0))
+    hAtt = attenuation.createAbsorptionFilter(alpha, targetPoint.r, r0)
 
     hL = soundTools.conv(hL,hAtt)
     hR = soundTools.conv(hR,hAtt)
