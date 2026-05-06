@@ -1,84 +1,23 @@
 import numpy as np
 import cv2 as cv
-import glob
-import random
-import os
 
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
-# prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
 objp = np.zeros((13*9,3), np.float32)
-
 #square size in mm
 sq_size = 40
 objp[:,:2] = np.mgrid[0:13,0:9].T.reshape(-1,2) * sq_size
 
-# Arrays to store object points and image points from all the images.
-objpoints = [] # 3d point in real world space
-imgpoints = [] # 2d points in image plane.
-
-#dirname = os.path.dirname(__file__)
-#filename = os.path.join(dirname, '/images')
-
-#print(dirname)
-path = os.path.abspath(os.getcwd())
-images = glob.glob(path+'/imagesForCalib/*.jpg')
-random.shuffle(images)
-
-split_idx = int(len(images)*0.8)
-train_imgs = images[:split_idx] #training set
-valid_imgs = images[split_idx:] #validation set
-#print(images)
-
-for fname in train_imgs:
-    img = cv.imread(fname)
-    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-
-    # Find the chess board corners
-    ret, corners = cv.findChessboardCorners(gray, (13,9), None)
-    print(f'{fname}: {ret}')
-
-    # If found, add object points, image points (after refining them)
-    if ret == True:
-        objpoints.append(objp)
-
-        corners2 = cv.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
-        imgpoints.append(corners2)
-
-        # Draw and display the corners
-        #cv.drawChessboardCorners(img, (13,9), corners2, ret)
-        #cv.imshow('img', img)
-        #cv.waitKey(500)
-
-#cv.waitKey(1000)
-
-#cv.destroyAllWindows()
-
-
-ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, 
-                                gray.shape[::-1], None, None, 
-                                flags=cv.CALIB_FIX_K3) #remove k3, extraneous distortion parameter
-
-results = {
-    "ret": ret,
-    "camera matrix": mtx,
-    "distortion coeff": dist,
-    "rotation vector": rvecs,
-    "translation vector": tvecs,
-    "obj points": objpoints,
-    "img points": imgpoints,
-    "valid imgs": valid_imgs
-}
-
-
-np.save("calib_results.npy", results)
-#results = np.load("calib_results.npy", allow_pickle=True)
-#ret = calib_results.item()["ret"]
-#mtx = calib_results.item()["camera matrix"]
-#dist = calib_results.item()["distortion coeff"]
-#rvecs = calib_results.item()["rotation vector"]
-#tvecs = calib_results.item()["translation vector"]
+results = np.load("calib_results.npy", allow_pickle=True)
+ret = results.item()["ret"]
+mtx = results.item()["camera matrix"]
+dist = results.item()["distortion coeff"]
+rvecs = results.item()["rotation vector"]
+tvecs = results.item()["translation vector"]
+objpoints = results.item()["obj points"]
+imgpoints = results.item()["img points"]
+valid_imgs = results.item()["valid imgs"]
 
 img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/test.jpg')
 h,  w = img.shape[:2]
@@ -93,7 +32,7 @@ dst = dst[y:y+h, x:x+w]
 cv.imwrite('testAfter.jpg', dst)
 
 
-#calculate re-projection (training) error
+#------------ calculate re-projection (training) error ------------#
 mean_error = 0
 for i in range(len(objpoints)):
     imgpoints2, _ = cv.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)

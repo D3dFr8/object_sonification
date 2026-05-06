@@ -51,15 +51,13 @@ def audio_process(conn, sr):
     def callback(output, frames, time_info, status):
         #give the signal to stop playing sound if object has been gone for more than 0.5 seconds
         #print(state.tracking)
-        if time.time() - state.time_since_last_detection > 0.5:
+        if time.time() - state.time_since_last_detection > 0.8:
             state.tracking = False
         
         #if no object has been found, 
         if not state.tracking:
             output.fill(0)
             state.phase = 0
-            state.ziL = None
-            state.ziR = None
             return
         
         #initialize memory for gapless filter if HRIR length changes
@@ -335,6 +333,7 @@ if __name__ == "__main__":
             balloon_h = 0.20
             real_area = balloon_w*balloon_h
             
+            #ellipsoider
             while True:
                 img = picam.capture_array()
                 
@@ -385,7 +384,7 @@ if __name__ == "__main__":
                     camera_vec = cam_mtx_inv.dot(center_coords)
                     
                     #compute horizontal and vertical angles
-                    azimuth = np.degrees(np.arctan2(camera_vec[0], 1)) * -1
+                    azimuth = np.degrees(np.arctan2(camera_vec[0], 1))
                     elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
                     
                     pixel_area = w*h
