@@ -23,10 +23,10 @@ imgpoints = [] # 2d points in image plane.
 
 #print(dirname)
 path = os.path.abspath(os.getcwd())
-images = glob.glob(path+'/imagesForCalib/*.jpg')
+images = glob.glob(path+'/imagesForCalibWide/*.jpg')
 random.shuffle(images)
 
-split_idx = int(len(images)*0.8)
+split_idx = int(len(images)*0.6)
 train_imgs = images[:split_idx] #training set
 valid_imgs = images[split_idx:] #validation set
 #print(images)
@@ -72,7 +72,7 @@ results = {
 }
 
 
-np.save("calib_results.npy", results)
+np.save("calib_results_wide.npy", results)
 #results = np.load("calib_results.npy", allow_pickle=True)
 #ret = calib_results.item()["ret"]
 #mtx = calib_results.item()["camera matrix"]
@@ -80,7 +80,7 @@ np.save("calib_results.npy", results)
 #rvecs = calib_results.item()["rotation vector"]
 #tvecs = calib_results.item()["translation vector"]
 
-img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/test.jpg')
+img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/testWide.jpg')
 h,  w = img.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 0, (w,h))
 
@@ -90,7 +90,7 @@ dst = cv.undistort(img, mtx, dist, None, newcameramtx)
 # crop the image
 x, y, w, h = roi
 dst = dst[y:y+h, x:x+w]
-cv.imwrite('testAfter.jpg', dst)
+cv.imwrite('testWideAfter.jpg', dst)
 
 
 #calculate re-projection (training) error
