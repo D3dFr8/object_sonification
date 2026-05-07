@@ -26,7 +26,7 @@ path = os.path.abspath(os.getcwd())
 images = glob.glob(path+'/imagesForCalibWide/*.jpg')
 random.shuffle(images)
 
-split_idx = int(len(images)*0.6)
+split_idx = int(len(images)*0.8)
 train_imgs = images[:split_idx] #training set
 valid_imgs = images[split_idx:] #validation set
 #print(images)
@@ -79,6 +79,7 @@ np.save("calib_results_wide.npy", results)
 #dist = calib_results.item()["distortion coeff"]
 #rvecs = calib_results.item()["rotation vector"]
 #tvecs = calib_results.item()["translation vector"]
+
 
 img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/testWide.jpg')
 h,  w = img.shape[:2]
