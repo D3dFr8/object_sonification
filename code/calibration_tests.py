@@ -20,7 +20,7 @@ imgpoints = results.item()["img points"]
 valid_imgs = results.item()["valid imgs"]
 
 """
-img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/test.jpg')
+img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/test2.jpg')
 h,  w = img.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 0, (w,h))
 
@@ -30,7 +30,7 @@ dst = cv.undistort(img, mtx, dist, None, newcameramtx)
 # crop the image
 x, y, w, h = roi
 dst = dst[y:y+h, x:x+w]
-cv.imwrite('testAfter.jpg', dst)
+cv.imwrite('test2After.jpg', dst)
 """
 
 #------------ calculate re-projection (training) error ------------#

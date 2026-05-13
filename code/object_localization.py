@@ -71,7 +71,7 @@ def audio_process(conn, sr):
 
         current_t = t+state.phase
         #reduce volume with distance. Do not change volume closer than 40 cm
-        vol = 0.3#min(0.4, 0.3/max(state.dist, 0.3))
+        vol = 0.2#min(0.4, 0.3/max(state.dist, 0.3))
         hum = vol*2*(f*current_t - np.floor(f*current_t + 0.5))
         state.phase += (frames/sr)
 
@@ -204,6 +204,7 @@ if __name__ == "__main__":
     try:        
         if localization_type == "nn":
             while True:
+                start_time = time.time()
                 #get metadata from camera
                 metadata = picam.capture_metadata()
 
@@ -291,9 +292,10 @@ if __name__ == "__main__":
                         #send target point to pipeline for audio
                         parent_conn.send(target)
                 
-                    print("-------------------------------------------")
+                print("-------------------------------------------")
 
                 time.sleep(0.01)
+                print("FPS: ", 1.0 / (time.time() - start_time)) # FPS = 1 / time to process loop
                 
         elif localization_type == "col":
             lower_red1 = np.array([0, 50, 16])
