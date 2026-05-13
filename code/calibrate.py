@@ -26,7 +26,7 @@ path = os.path.abspath(os.getcwd())
 images = glob.glob(path+'/imagesForCalibWide/*.jpg')
 random.shuffle(images)
 
-split_idx = int(len(images)*0.8)
+split_idx = int(len(images)*0.7)
 train_imgs = images[:split_idx] #training set
 valid_imgs = images[split_idx:] #validation set
 #print(images)
@@ -60,19 +60,6 @@ ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints,
                                 gray.shape[::-1], None, None, 
                                 flags=cv.CALIB_FIX_K3) #remove k3, extraneous distortion parameter
 
-results = {
-    "ret": ret,
-    "camera matrix": mtx,
-    "distortion coeff": dist,
-    "rotation vector": rvecs,
-    "translation vector": tvecs,
-    "obj points": objpoints,
-    "img points": imgpoints,
-    "valid imgs": valid_imgs
-}
-
-
-np.save("calib_results_wide.npy", results)
 #results = np.load("calib_results.npy", allow_pickle=True)
 #ret = calib_results.item()["ret"]
 #mtx = calib_results.item()["camera matrix"]
@@ -80,7 +67,7 @@ np.save("calib_results_wide.npy", results)
 #rvecs = calib_results.item()["rotation vector"]
 #tvecs = calib_results.item()["translation vector"]
 
-
+"""
 img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/testWide.jpg')
 h,  w = img.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 0, (w,h))
@@ -92,7 +79,7 @@ dst = cv.undistort(img, mtx, dist, None, newcameramtx)
 x, y, w, h = roi
 dst = dst[y:y+h, x:x+w]
 cv.imwrite('testWideAfter.jpg', dst)
-
+"""
 
 #calculate re-projection (training) error
 mean_error = 0
@@ -136,3 +123,23 @@ mean_error_perpoint = total_valid_error/total_points #average error for every po
 
 print(f'Mean validation error per image: {mean_error_perimg}')
 print(f'Mean validation error per point: {mean_error_perpoint}')
+
+
+res = np.load("calib_results_wide.npy", allow_pickle=True)
+best_error = res.item()["error"]
+
+#if current error per point is smaller than best error, overwrite the data cus it's better
+if mean_error_perpoint < best_error:
+    results = {
+    "ret": ret,
+    "camera matrix": mtx,
+    "distortion coeff": dist,
+    "rotation vector": rvecs,
+    "translation vector": tvecs,
+    "obj points": objpoints,
+    "img points": imgpoints,
+    "valid imgs": valid_imgs,
+    "error": mean_error_perpoint
+    }
+
+    np.save("calib_results_wide.npy", results)
