@@ -154,6 +154,7 @@ def audio_process(conn, sr):
 if __name__ == "__main__":
     fps = []
     atTime = []
+    human_time = []
 
 
     localization_type = "col"
@@ -225,7 +226,9 @@ if __name__ == "__main__":
                     #minimum confidence for an object to be considered
                     threshold = 0.5
                     for i in range(len(boxes)):
-                        if scores[i] > threshold: #and classes[i] == 0:
+                        if scores[i] > threshold and classes[i] == 0:
+                            if len(human_time) == 0:
+                                human_time.append(time.time()-before_time)
                             area = boxes[i][2]*boxes[i][3]
                             if area > biggest_box:
                                 biggest_box = area
@@ -303,7 +306,9 @@ if __name__ == "__main__":
                 current_time = time.time()
                 fps.append(1.0 / (current_time - start_time))
                 atTime.append(current_time-before_time)
-                print("FPS: ", 1.0 / (current_time - start_time)) # FPS = 1 / time to process loop
+                if current_time-before_time >= 60:
+                    raise KeyboardInterrupt
+                #print("FPS: ", 1.0 / (current_time - start_time)) # FPS = 1 / time to process loop
                 
         elif localization_type == "col":
             lower_red1 = np.array([0, 50, 16])
@@ -430,8 +435,17 @@ if __name__ == "__main__":
         picam.stop()
         picam.close()
 
-
         plt.plot(atTime, fps)
+        plt.title('Performance of MobileNet SSD with human entering frame')
         plt.xlabel('Time (s)')
         plt.ylabel('FPS (1/s)')
-        plt.show()
+        
+        plt.savefig("fps_plotNN_human_30sec.png", bbox_inches='tight')
+
+        results = {
+            "time": atTime,
+            "fps": fps,
+            "human_entry_time": human_time
+        }
+
+        np.save("fps_dataNN_human_30sec.npy", results)
