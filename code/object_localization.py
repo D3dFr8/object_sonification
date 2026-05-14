@@ -25,6 +25,43 @@ Framtiden: Logga i en fil och köra med olika filter
 sr = lH.getSamplingRate()
 #chirp = Chirp(400, 400, 1/30, sr, 0.2)
 
+lower_red1 = np.array([0, 50, 16])
+upper_red1 = np.array([10, 255, 255])
+
+lower_orange = np.array([15, 50, 16])
+upper_orange = np.array([25, 255, 255])
+
+lower_yellow = np.array([25, 50, 16])
+upper_yellow = np.array([35, 255, 255])
+
+lower_green = np.array([40, 50, 16])
+upper_green = np.array([70, 255, 255])
+
+lower_turqoise = np.array([70, 50, 16])
+upper_turqoise = np.array([90, 255, 255])
+
+lower_lightblue = np.array([90, 50, 16])
+upper_lightblue = np.array([100, 255, 255])
+
+lower_blue = np.array([100, 50, 16])
+upper_blue = np.array([110, 255, 255])
+
+lower_marine = np.array([110, 50, 16])
+upper_marine = np.array([130, 255, 255])
+
+lower_purple = np.array([130, 50, 16])
+upper_purple = np.array([150, 255, 255])
+            
+lower_pink = np.array([150, 50, 16])
+upper_pink = np.array([165, 255, 255])
+
+lower_red2 = np.array([170, 50, 16])
+upper_red2 = np.array([180, 255, 255])
+            
+balloon_w = 0.20
+balloon_h = 0.35
+real_area_color = balloon_w*balloon_h
+            
 #A class to keep track of the state of different key variables for the audio process
 #such as HRIR and filter memory
 class State:
@@ -51,7 +88,7 @@ def audio_process(conn, sr):
     def callback(output, frames, time_info, status):
         #give the signal to stop playing sound if object has been gone for more than 0.5 seconds
         #print(state.tracking)
-        if time.time() - state.time_since_last_detection > 0.8:
+        if time.time() - state.time_since_last_detection > 0.5:
             state.tracking = False
         
         #if no object has been found, 
@@ -155,6 +192,7 @@ if __name__ == "__main__":
     fps = []
     atTime = []
     human_time = []
+    color_time = []
 
 
     localization_type = "col"
@@ -194,23 +232,23 @@ if __name__ == "__main__":
     model = "/usr/share/imx500-models/imx500_network_ssd_mobilenetv2_fpnlite_320x320_pp.rpk"
     imx500 = IMX500(model)
 
-    #configure camera with fps and resolution. Half of the OG resolution is used to ensure stable performance
-    config = picam.create_preview_configuration(
-        main={"size": (2028, 1520), "format": "XRGB8888"},
-        controls={"FrameDurationLimits": (33333, 33333)}
-    )
-    picam.configure(config)
-    #start camera
-    picam.start_preview(Preview.QTGL)
-    picam.start()
-
-    time.sleep(3)
     print("Camera started, precc Ctrl+C to stop")
     try:        
         if localization_type == "nn":
-            before_time = time.time()
+            #configure camera with fps and resolution. Half of the OG resolution is used to ensure stable performance
+            config = picam.create_preview_configuration(
+                main={"size": (2028, 1520), "format": "XRGB8888"},
+                controls={"FrameDurationLimits": (33333, 33333)}
+            )
+            picam.configure(config)
+            #start camera
+            picam.start_preview(Preview.QTGL)
+            picam.start()
+            time.sleep(3)
+
+            #before_time = time.time()
             while True:
-                start_time = time.time()
+                #start_time = time.time()
                 #get metadata from camera
                 metadata = picam.capture_metadata()
 
@@ -227,8 +265,8 @@ if __name__ == "__main__":
                     threshold = 0.5
                     for i in range(len(boxes)):
                         if scores[i] > threshold and classes[i] == 0:
-                            if len(human_time) == 0:
-                                human_time.append(time.time()-before_time)
+                            #if len(human_time) == 0:
+                                #human_time.append(time.time()-before_time)
                             area = boxes[i][2]*boxes[i][3]
                             if area > biggest_box:
                                 biggest_box = area
@@ -303,61 +341,38 @@ if __name__ == "__main__":
                 print("-------------------------------------------")
 
                 #time.sleep(0.01)
-                current_time = time.time()
-                fps.append(1.0 / (current_time - start_time))
-                atTime.append(current_time-before_time)
-                if current_time-before_time >= 60:
-                    raise KeyboardInterrupt
+                #current_time = time.time()
+                #fps.append(1.0 / (current_time - start_time))
+                #atTime.append(current_time-before_time)
+                #if current_time-before_time >= 60:
+                #    raise KeyboardInterrupt
                 #print("FPS: ", 1.0 / (current_time - start_time)) # FPS = 1 / time to process loop
                 
         elif localization_type == "col":
-            lower_red1 = np.array([0, 50, 16])
-            upper_red1 = np.array([10, 255, 255])
-
-            lower_orange = np.array([15, 50, 16])
-            upper_orange = np.array([25, 255, 255])
-
-            lower_yellow = np.array([25, 50, 16])
-            upper_yellow = np.array([35, 255, 255])
-
-            lower_green = np.array([40, 50, 16])
-            upper_green = np.array([70, 255, 255])
-
-            lower_turqoise = np.array([70, 50, 16])
-            upper_turqoise = np.array([90, 255, 255])
-
-            lower_lightblue = np.array([90, 50, 16])
-            upper_lightblue = np.array([100, 255, 255])
-
-            lower_blue = np.array([100, 50, 16])
-            upper_blue = np.array([110, 255, 255])
-
-            lower_marine = np.array([110, 50, 16])
-            upper_marine = np.array([130, 255, 255])
-
-            lower_purple = np.array([130, 50, 16])
-            upper_purple = np.array([150, 255, 255])
+            scale = 4
+            #configure camera with fps and resolution. Half of the OG resolution is used to ensure stable performance
+            config = picam.create_preview_configuration(
+                main={"size": (int(2028/scale), int(1520/scale)), "format": "XRGB8888"},
+                controls={"FrameDurationLimits": (33333, 33333)}
+            )
+            picam.configure(config)
+            #start camera
+            picam.start_preview(Preview.QTGL)
+            picam.start()
+            time.sleep(3)
             
-            lower_pink = np.array([150, 50, 16])
-            upper_pink = np.array([165, 255, 255])
-
-            lower_red2 = np.array([170, 50, 16])
-            upper_red2 = np.array([180, 255, 255])
-            
-            balloon_w = 0.20
-            balloon_h = 0.20
-            real_area = balloon_w*balloon_h
-            
+            #before_time = time.time()
             #ellipsoider
             while True:
+                #start_time = time.time()
                 img = picam.capture_array()
-                
+
                 #convert from BGR to HSV (hue, saturation, value) color space
                 hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
 
                 #create mask and kernel
-                mask = cv.inRange(hsv, lower_pink, upper_pink)
-                kernel = np.ones((13, 13), np.uint8)
+                mask = cv.inRange(hsv, lower_blue, upper_blue)
+                kernel = np.ones((5, 5), np.uint8)
                 
                 #clean up noise using morphology (erosion and dilation)
                 mask = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
@@ -367,7 +382,7 @@ if __name__ == "__main__":
                 contours, _ = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
                 
                 #minimum pixel area of object to consider (10x10 size)
-                MIN_AREA = 400
+                MIN_AREA = 400 / (scale**2)
                 
                 #filter contours to only include those larger than 10x10 pixels
                 filtered_contours = []
@@ -381,6 +396,8 @@ if __name__ == "__main__":
                 for i in range(len(filtered_contours)):
                     x, y, w, h = cv.boundingRect(filtered_contours[i])
                     area = w*h
+                    #if len(color_time) == 0:
+                     #   color_time.append(time.time()-before_time)
                     if area > biggest_box:
                         biggest_box = area
                         idx_biggest = i
@@ -390,8 +407,8 @@ if __name__ == "__main__":
                     x, y, w, h = cv.boundingRect(filtered_contours[idx_biggest])
                     
                     #get coordinates of middle of object
-                    u = float(x + (w/2))
-                    v = float(y + (h/2))
+                    u = float(x + (w/2)) * scale
+                    v = float(y + (h/2)) * scale
                     w_coord = 1.0
                     
                     #create array with pixel coordinates and convert to camera's coordinates
@@ -402,17 +419,17 @@ if __name__ == "__main__":
                     azimuth = np.degrees(np.arctan2(camera_vec[0], 1))
                     elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
                     
-                    pixel_area = w*h
+                    pixel_area = w*h * (scale**2)
 
-                    distance = np.sqrt((real_area*focal_area)/float(pixel_area))
+                    distance = np.sqrt((real_area_color*focal_area)/float(pixel_area))
 
-                    #if real_area < 0.15:
+                    #if real_area_color < 0.15:
                      #   chirp.set_len(2)
 
-                    #if real_area < 0.09:
+                    #if real_area_color < 0.09:
                      #   chirp.set_len(20)
 
-                    #print(f"len: {chirp.get_len()}, area: {real_area}")
+                    #print(f"len: {chirp.get_len()}, area: {real_area_color}")
 
                     target = (float(azimuth), float(elevation), float(distance))
 
@@ -426,7 +443,15 @@ if __name__ == "__main__":
                 
                 print("-------------------------------------------")
                 
+                
                 #time.sleep(0.01)
+                """
+                current_time = time.time()
+                fps.append(1.0 / (current_time - start_time))
+                atTime.append(current_time-before_time)
+                if current_time-before_time >= 60:
+                    raise KeyboardInterrupt
+                """
 
     except KeyboardInterrupt:
         parent_conn.send(False)
@@ -434,18 +459,20 @@ if __name__ == "__main__":
 
         picam.stop()
         picam.close()
-
+        
+        """
         plt.plot(atTime, fps)
-        plt.title('Performance of MobileNet SSD with human entering frame')
+        plt.title('Performance of Color segmentation with blue balloon entering frame')
         plt.xlabel('Time (s)')
         plt.ylabel('FPS (1/s)')
         
-        plt.savefig("fps_plotNN_human_30sec.png", bbox_inches='tight')
+        plt.savefig("fps_plotCol_blueBalloon_30sec.png", bbox_inches='tight')
 
         results = {
             "time": atTime,
             "fps": fps,
-            "human_entry_time": human_time
+            "color_entry_time": color_time
         }
 
-        np.save("fps_dataNN_human_30sec.npy", results)
+        np.save("fps_dataCol_blueBalloon_30sec.npy", results)
+        """
