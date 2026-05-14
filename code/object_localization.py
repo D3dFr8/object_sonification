@@ -152,6 +152,10 @@ def audio_process(conn, sr):
 #------------------MAIN CAMERA LOOP----------------#
 #--------------------------------------------------#
 if __name__ == "__main__":
+    fps = []
+    atTime = []
+
+
     localization_type = "col"
     if len(sys.argv) > 1:
         localization_type = sys.argv[1]
@@ -203,6 +207,7 @@ if __name__ == "__main__":
     print("Camera started, precc Ctrl+C to stop")
     try:        
         if localization_type == "nn":
+            before_time = time.time()
             while True:
                 start_time = time.time()
                 #get metadata from camera
@@ -220,7 +225,7 @@ if __name__ == "__main__":
                     #minimum confidence for an object to be considered
                     threshold = 0.5
                     for i in range(len(boxes)):
-                        if scores[i] > threshold and classes[i] == 0:
+                        if scores[i] > threshold: #and classes[i] == 0:
                             area = boxes[i][2]*boxes[i][3]
                             if area > biggest_box:
                                 biggest_box = area
@@ -294,8 +299,11 @@ if __name__ == "__main__":
                 
                 print("-------------------------------------------")
 
-                time.sleep(0.01)
-                print("FPS: ", 1.0 / (time.time() - start_time)) # FPS = 1 / time to process loop
+                #time.sleep(0.01)
+                current_time = time.time()
+                fps.append(1.0 / (current_time - start_time))
+                atTime.append(current_time-before_time)
+                print("FPS: ", 1.0 / (current_time - start_time)) # FPS = 1 / time to process loop
                 
         elif localization_type == "col":
             lower_red1 = np.array([0, 50, 16])
@@ -412,8 +420,8 @@ if __name__ == "__main__":
                     parent_conn.send(target)
                 
                 print("-------------------------------------------")
-                    
-                time.sleep(0.01)
+                
+                #time.sleep(0.01)
 
     except KeyboardInterrupt:
         parent_conn.send(False)
@@ -421,3 +429,9 @@ if __name__ == "__main__":
 
         picam.stop()
         picam.close()
+
+
+        plt.plot(atTime, fps)
+        plt.xlabel('Time (s)')
+        plt.ylabel('FPS (1/s)')
+        plt.show()

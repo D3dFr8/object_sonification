@@ -23,10 +23,10 @@ imgpoints = [] # 2d points in image plane.
 
 #print(dirname)
 path = os.path.abspath(os.getcwd())
-images = glob.glob(path+'/imagesForCalib/*.jpg')
+images = glob.glob(path+'/imagesForCalibWide/*.jpg')
 random.shuffle(images)
 
-split_idx = int(len(images)*0.7)
+split_idx = int(len(images)*0.5)
 train_imgs = images[:split_idx] #training set
 valid_imgs = images[split_idx:] #validation set
 #print(images)
@@ -120,7 +120,8 @@ print(f'Mean validation error per image: {mean_error_perimg}')
 print(f'Mean validation error per point: {mean_error_perpoint}')
 
 
-res = np.load("calib_results.npy", allow_pickle=True)
+"""
+res = np.load("calib_results_wide.npy", allow_pickle=True)
 best_error = res.item()["error"]
 
 #if current error per point is smaller than best error, overwrite the data cus it's better
@@ -137,4 +138,5 @@ if mean_error_perpoint < best_error:
     "error": mean_error_perpoint
     }
 
-    np.save("calib_results.npy", results)
+    np.save("calib_results_wide.npy", results)
+"""
