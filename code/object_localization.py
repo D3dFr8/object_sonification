@@ -135,7 +135,21 @@ def audio_process(conn, sr):
     )
     stream.start()
 
+    
+    latency = []
+    atTime = []
+    human_time = []
+    color_time = []
+
+    dropped = []
+    
     try:
+        latency_interval = 1 #to display the latency every x second
+        counter = 0
+        calc_t = 0
+        base_time = time.time()
+        start_time = time.time()
+        dropped_targets = 0
         while True:
             #returns True if there is data in pipeline. Block for 50 ms
             if conn.poll(0.05):
@@ -150,6 +164,7 @@ def audio_process(conn, sr):
                 #drain pipeline of all older messages
                 while conn.poll():
                     msg = conn.recv()
+                    dropped_targets += 1
                     if msg == False:
                         stream.stop()
                         return
@@ -163,8 +178,13 @@ def audio_process(conn, sr):
                 targetR = r
                 target_point = point.createPointFromSph(targetAz,targetEl,targetR)
 
+                if len(color_time) == 0:
+                    color_time.append(time.time()-base_time)
+
                 #calculate HRIR
+                start_t = time.time()
                 hL_new,hR_new = getHRIR.getHrirAtTarget(target_point, 0.1)
+                calc_t = time.time() - start_t
 
                 #normalize HRIR filters
                 energy_val = max(np.sum(np.abs(hL_new)), np.sum(np.abs(hR_new)))
@@ -180,10 +200,45 @@ def audio_process(conn, sr):
                 state.time_since_last_detection = time.time()
                 state.tracking = True
 
+            counter+=1
+            current_time = time.time()
+            if (current_time - start_time) >= latency_interval:
+                dropped.append(dropped_targets)
+                latency.append(calc_t*1000) #latency will be in milliseconds
+                atTime.append(current_time-base_time)
+                dropped_targets = 0
+                counter = 0
+                start_time = time.time()
+
 
     finally:
         stream.stop()
         stream.close()
+
+        plt.plot(atTime, latency, color="green")
+        plt.title('HRIR execution latency with blue balloon at ~30 sec')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Latency (ms)')
+
+        plt.savefig("per_sec_latency_plotCol_blueBalloon_30sec_check.png", bbox_inches='tight')
+
+        plt.clf()
+
+        plt.plot(atTime, dropped, color="orange")
+        plt.title('Amount of old targets discarded with blue balloon at ~30 sec')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Dropped targets')
+    
+        plt.savefig("per_sec_dropped_plotCol_blueBalloon_30sec_check.png", bbox_inches='tight')
+
+        results = {
+            "time": atTime,
+            "latency": latency,
+            "color_entry_time": color_time,
+            "dropped_targets": dropped
+        }
+
+        np.save("per_sec_latency_dataCol_blueBalloon_30sec_check.npy", results)
 
 #--------------------------------------------------#
 #------------------MAIN CAMERA LOOP----------------#
@@ -193,7 +248,6 @@ if __name__ == "__main__":
     atTime = []
     human_time = []
     color_time = []
-
 
     localization_type = "col"
     if len(sys.argv) > 1:
@@ -246,9 +300,11 @@ if __name__ == "__main__":
             picam.start()
             time.sleep(3)
 
-            #before_time = time.time()
+            fps_interval = 1 #to display the frame rate every x second
+            counter = 0
+            base_time = time.time()
+            start_time = time.time()
             while True:
-                #start_time = time.time()
                 #get metadata from camera
                 metadata = picam.capture_metadata()
 
@@ -265,8 +321,8 @@ if __name__ == "__main__":
                     threshold = 0.5
                     for i in range(len(boxes)):
                         if scores[i] > threshold and classes[i] == 0:
-                            #if len(human_time) == 0:
-                                #human_time.append(time.time()-before_time)
+                            if len(human_time) == 0:
+                                human_time.append(time.time()-base_time)
                             area = boxes[i][2]*boxes[i][3]
                             if area > biggest_box:
                                 biggest_box = area
@@ -341,10 +397,22 @@ if __name__ == "__main__":
                 print("-------------------------------------------")
 
                 #time.sleep(0.01)
-                #current_time = time.time()
+                
+                counter+=1
+                current_time = time.time()
+                if (current_time - start_time) >= fps_interval:
+                    #print("FPS: ", counter / (current_time - start_time))
+                    fps.append(counter / (current_time - start_time))
+                    atTime.append(current_time-base_time)
+                    counter = 0
+                    if current_time-base_time >= 120:
+                        raise KeyboardInterrupt
+                    start_time = time.time()
+                
+
                 #fps.append(1.0 / (current_time - start_time))
-                #atTime.append(current_time-before_time)
-                #if current_time-before_time >= 60:
+                #atTime.append(current_time-base_time)
+                #if current_time-base_time >= 60:
                 #    raise KeyboardInterrupt
                 #print("FPS: ", 1.0 / (current_time - start_time)) # FPS = 1 / time to process loop
                 
@@ -360,11 +428,13 @@ if __name__ == "__main__":
             picam.start_preview(Preview.QTGL)
             picam.start()
             time.sleep(3)
-            
-            #before_time = time.time()
+
             #ellipsoider
+            fps_interval = 1 #to display the frame rate every x second
+            counter = 0
+            base_time = time.time()
+            start_time = time.time()
             while True:
-                #start_time = time.time()
                 img = picam.capture_array()
 
                 #convert from BGR to HSV (hue, saturation, value) color space
@@ -396,8 +466,8 @@ if __name__ == "__main__":
                 for i in range(len(filtered_contours)):
                     x, y, w, h = cv.boundingRect(filtered_contours[i])
                     area = w*h
-                    #if len(color_time) == 0:
-                     #   color_time.append(time.time()-before_time)
+                    if len(color_time) == 0:
+                        color_time.append(time.time()-base_time)
                     if area > biggest_box:
                         biggest_box = area
                         idx_biggest = i
@@ -445,11 +515,23 @@ if __name__ == "__main__":
                 
                 
                 #time.sleep(0.01)
+                
+                counter+=1
+                current_time = time.time()
+                if (current_time - start_time) >= fps_interval:
+                    #print("FPS: ", counter / (current_time - start_time))
+                    fps.append(counter / (current_time - start_time))
+                    atTime.append(current_time-base_time)
+                    counter = 0
+                    if current_time-base_time >= 120:
+                        raise KeyboardInterrupt
+                    start_time = time.time()
+                
                 """
                 current_time = time.time()
                 fps.append(1.0 / (current_time - start_time))
-                atTime.append(current_time-before_time)
-                if current_time-before_time >= 60:
+                atTime.append(current_time-base_time)
+                if current_time-base_time >= 60:
                     raise KeyboardInterrupt
                 """
 
@@ -460,13 +542,13 @@ if __name__ == "__main__":
         picam.stop()
         picam.close()
         
-        """
+        
         plt.plot(atTime, fps)
-        plt.title('Performance of Color segmentation with blue balloon entering frame')
+        plt.title('Performance of color segmentation per second with blue balloon at ~30 sec')
         plt.xlabel('Time (s)')
         plt.ylabel('FPS (1/s)')
         
-        plt.savefig("fps_plotCol_blueBalloon_30sec.png", bbox_inches='tight')
+        plt.savefig("per_second_fps_plotCol_blueBalloon_30sec_check.png", bbox_inches='tight')
 
         results = {
             "time": atTime,
@@ -474,5 +556,4 @@ if __name__ == "__main__":
             "color_entry_time": color_time
         }
 
-        np.save("fps_dataCol_blueBalloon_30sec.npy", results)
-        """
+        np.save("per_second_fps_dataCol_blueBalloon_30sec_check.npy", results)
