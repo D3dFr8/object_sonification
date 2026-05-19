@@ -1,7 +1,13 @@
 import numpy as np
 
 results = np.load("calib_results.npy", allow_pickle=True)
+mtx = results.item()["camera matrix"]
 dist = results.item()["distortion coeff"]
+T = results.item()["translation vector"]
+R = results.item()["rotation vector"]
+
+valid = results.item()["valid imgs"]
+print(len(valid))
 
 """
 #-------------MobileNet fps data------------#
@@ -89,7 +95,7 @@ for i in range(len(fps)):
     if latency[i] > fps[i]:
         print("bad")
 
-
+"""
 #---------------MobileNet data 120 sec stress test-------------#
 results = np.load("per_sec_latency_dataNN_human_30sec_check.npy", allow_pickle=True)
 latency = results.item()["latency"] #mean: 21.974200010299683  ms
@@ -100,12 +106,12 @@ fps = results.item()["fps"] #mean: 29.20164711900892
 print(np.mean(fps))
 
 for i in range(len(fps)):
-    if latency[i] > fps[i]:
+    if latency[i] > 1000/fps[i]:
         print("bad")
         print(i)
 #bottleneck at indices 110, 111, 112 and 115.
-"""
 
+"""
 #--------------ColSeg latency data per second --------------#
 results = np.load("per_sec_latency_dataCol_blueBalloon_30sec_check.npy", allow_pickle=True)
 timestamp = results.item()["color_entry_time"] #34.599791049957275 sec
@@ -141,3 +147,4 @@ for i in range(len(fps)):
 #latency mean: 
 #fps mean: 
 #
+"""

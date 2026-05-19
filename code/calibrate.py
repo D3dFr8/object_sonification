@@ -26,7 +26,7 @@ path = os.path.abspath(os.getcwd())
 images = glob.glob(path+'/imagesForCalibWide/*.jpg')
 random.shuffle(images)
 
-split_idx = int(len(images)*0.5)
+split_idx = int(len(images)*0.7)
 train_imgs = images[:split_idx] #training set
 valid_imgs = images[split_idx:] #validation set
 #print(images)
@@ -59,7 +59,6 @@ for fname in train_imgs:
 ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, 
                                 gray.shape[::-1], None, None, 
                                 flags=cv.CALIB_FIX_K3) #remove k3, extraneous distortion parameter
-
 
 
 """

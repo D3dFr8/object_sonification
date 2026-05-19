@@ -61,7 +61,8 @@ upper_red2 = np.array([180, 255, 255])
 balloon_w = 0.20
 balloon_h = 0.35
 real_area_color = balloon_w*balloon_h
-            
+
+sensor_size = 0.007857
 #A class to keep track of the state of different key variables for the audio process
 #such as HRIR and filter memory
 class State:
@@ -81,7 +82,7 @@ state = State()
 #----------------------------------------------#
 #-----------------AUDIO HANDLER----------------#
 #----------------------------------------------#
-def audio_process(conn, sr):
+def audio_process(conn, sr, master_clock):
 
     #real time audio generator
     #frames is updated through the hardware interrupt performed by the DAC
@@ -138,8 +139,7 @@ def audio_process(conn, sr):
     
     latency = []
     atTime = []
-    human_time = []
-    color_time = []
+    object_time = []
 
     dropped = []
     
@@ -147,7 +147,6 @@ def audio_process(conn, sr):
         latency_interval = 1 #to display the latency every x second
         counter = 0
         calc_t = 0
-        base_time = time.time()
         start_time = time.time()
         dropped_targets = 0
         while True:
@@ -178,8 +177,8 @@ def audio_process(conn, sr):
                 targetR = r
                 target_point = point.createPointFromSph(targetAz,targetEl,targetR)
 
-                if len(color_time) == 0:
-                    color_time.append(time.time()-base_time)
+                if len(object_time) == 0:
+                    object_time.append(time.time()-master_clock)
 
                 #calculate HRIR
                 start_t = time.time()
@@ -234,7 +233,7 @@ def audio_process(conn, sr):
         results = {
             "time": atTime,
             "latency": latency,
-            "color_entry_time": color_time,
+            "color_entry_time": object_time,
             "dropped_targets": dropped
         }
 
@@ -246,8 +245,7 @@ def audio_process(conn, sr):
 if __name__ == "__main__":
     fps = []
     atTime = []
-    human_time = []
-    color_time = []
+    object_time = []
 
     localization_type = "col"
     if len(sys.argv) > 1:
@@ -265,8 +263,10 @@ if __name__ == "__main__":
     with open(file_path, 'r') as file:
         dims = file.readlines()
 
+    master_clock = time.time()
+    
     parent_conn, child_conn = Pipe()
-    p = Process(target=audio_process, args=(child_conn, sr))
+    p = Process(target=audio_process, args=(child_conn, sr, master_clock))
     p.start()
 
     #get dictionary with results from the calibration
@@ -321,8 +321,8 @@ if __name__ == "__main__":
                     threshold = 0.5
                     for i in range(len(boxes)):
                         if scores[i] > threshold and classes[i] == 0:
-                            if len(human_time) == 0:
-                                human_time.append(time.time()-base_time)
+                            if len(object_time) == 0:
+                                object_time.append(time.time()-master_clock)
                             area = boxes[i][2]*boxes[i][3]
                             if area > biggest_box:
                                 biggest_box = area
@@ -350,10 +350,10 @@ if __name__ == "__main__":
                         #create array with pixel coordinates and convert to camera's coordinates
                         center_coords = np.array([u, v, w_coord], dtype=np.float64)
                         camera_vec = cam_mtx_inv.dot(center_coords)
-                        camera_vec[0] = -camera_vec[0]
+                        #camera_vec[0] = -camera_vec[0]
 
                         #compute horizontal and vertical angles
-                        azimuth = np.degrees(np.arctan2(camera_vec[0], 1)) * -1
+                        azimuth = np.degrees(np.arctan2(camera_vec[0], 1))
                         elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
                         
                         #extract class name and dimensions from index
@@ -371,8 +371,10 @@ if __name__ == "__main__":
                         pixel_area = pixel_w*pixel_h
                         real_area = real_w*real_h
 
-                        distance = np.sqrt((real_area*focal_area)/float(pixel_area))
+                        #distance = np.sqrt((real_area*focal_area)/float(pixel_area))
 
+                        img_area = width*height
+                        distance = np.sqrt(focal_area*real_area*img_area/float(pixel_area)/(sensor_size**2))
                         #if real_area < 0.5:
                         #   chirp.set_len(0.4)
                         
@@ -466,8 +468,8 @@ if __name__ == "__main__":
                 for i in range(len(filtered_contours)):
                     x, y, w, h = cv.boundingRect(filtered_contours[i])
                     area = w*h
-                    if len(color_time) == 0:
-                        color_time.append(time.time()-base_time)
+                    if len(object_time) == 0:
+                        object_time.append(time.time()-master_clock)
                     if area > biggest_box:
                         biggest_box = area
                         idx_biggest = i
@@ -553,7 +555,7 @@ if __name__ == "__main__":
         results = {
             "time": atTime,
             "fps": fps,
-            "color_entry_time": color_time
+            "color_entry_time": object_time
         }
 
         np.save("per_second_fps_dataCol_blueBalloon_30sec_check.npy", results)
