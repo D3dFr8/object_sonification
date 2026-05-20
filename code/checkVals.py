@@ -1,5 +1,6 @@
 import numpy as np
 
+"""
 results = np.load("calib_results.npy", allow_pickle=True)
 mtx = results.item()["camera matrix"]
 dist = results.item()["distortion coeff"]
@@ -8,6 +9,7 @@ R = results.item()["rotation vector"]
 
 valid = results.item()["valid imgs"]
 print(len(valid))
+"""
 
 """
 #-------------MobileNet fps data------------#
@@ -62,32 +64,32 @@ fps = results.item()["fps"] #mean: 29.53490502248249
 print(np.mean(fps))
 """
 
-"""
-#--------------MobileNet data 120 sec--------------#
+
+#--------------MobileNet latency data 120 sec--------------#
 results = np.load("per_sec_latency_dataNN_human_30sec.npy", allow_pickle=True)
-timestamp = results.item()["human_entry_time"] #33.56586527824402 sec
-latency = results.item()["latency"] #mean: 21.668856171355852  ms
+timestamp = results.item()["human_entry_time"] #34.7148380279541 sec
+latency = results.item()["latency"] #mean after 30 sec: 21.55130742544151   ms
 
 max_l = max(latency)
-print(max_l)
+#print(max_l)
 latency_max_i = latency.index(max_l)
-print(max_l - latency[latency_max_i])
+#print(max_l - latency[latency_max_i])
 
-#print(timestamp)
+print(timestamp)
 human_entry_i = int(round(timestamp[0]))-1
-#print(np.mean(latency[human_entry_i:]))
+print(np.mean(latency[human_entry_i:]))
 #halftime_i = round(((len(latency)-1)-human_entry_i)/2)
 #print(np.mean(latency[human_entry_i:halftime_i]))
 #print(np.mean(latency[halftime_i:len(latency)]))
 
 results = np.load("per_second_fps_dataNN_human_30sec.npy", allow_pickle=True)
-timestamp = results.item()["human_entry_time"] #30.100055932998657 sec
-fps = results.item()["fps"] #mean: 29.770193573063107
+timestamp = results.item()["human_entry_time"] #34.71368145942688 sec
+fps = results.item()["fps"] #mean after 30 sec: 30.24096638298773
 
-print(fps[latency_max_i])
-#print(timestamp)
+#print(fps[latency_max_i])
+print(timestamp)
 human_entry_i = int(round(timestamp[0]))-1
-#print(np.mean(fps))
+print(np.mean(fps[human_entry_i]))
 #Latency is 29.552698135375977 ms at max. At this same point, fps is 29.967384074139964
 #It takes the HRIR ~29.553 ms to calculate, while a frame is processed in ~33.370 ms. No targets are thrown out
 
@@ -95,6 +97,38 @@ for i in range(len(fps)):
     if latency[i] > fps[i]:
         print("bad")
 
+
+
+"""
+#--------------ColSeg latency data 120 sec--------------#
+results = np.load("per_sec_latency_dataCol_blueBalloon_30sec.npy", allow_pickle=True)
+timestamp = results.item()["color_entry_time"] #33.17031669616699 sec
+latency = results.item()["latency"] #mean after 30 sec:22.20129418647152  ms
+
+#print(timestamp)
+human_entry_i = int(round(timestamp[0]))-1
+print(timestamp)
+print(np.mean(latency[human_entry_i:]))
+#halftime_i = round(((len(latency)-1)-human_entry_i)/2)
+#print(np.mean(latency[human_entry_i:halftime_i]))
+#print(np.mean(latency[halftime_i:len(latency)]))
+
+results = np.load("per_second_fps_dataCol_blueBalloon_30sec.npy", allow_pickle=True)
+timestamp = results.item()["color_entry_time"] #33.169421672821045 sec
+fps = results.item()["fps"] #mean after 30 sec: 30.016412237047067
+
+#print(fps[latency_max_i])
+#print(timestamp)
+human_entry_i = int(round(timestamp[0]))-1
+print(timestamp)
+print(np.mean(fps[human_entry_i:]))
+
+for i in range(len(fps)):
+    if latency[i] > fps[i]:
+        print("bad")
+        print(i)
+
+"""
 """
 #---------------MobileNet data 120 sec stress test-------------#
 results = np.load("per_sec_latency_dataNN_human_30sec_check.npy", allow_pickle=True)
@@ -109,34 +143,7 @@ for i in range(len(fps)):
     if latency[i] > 1000/fps[i]:
         print("bad")
         print(i)
-#bottleneck at indices 110, 111, 112 and 115.
-
-"""
-#--------------ColSeg latency data per second --------------#
-results = np.load("per_sec_latency_dataCol_blueBalloon_30sec_check.npy", allow_pickle=True)
-timestamp = results.item()["color_entry_time"] #34.599791049957275 sec
-latency = results.item()["latency"] #mean: 21.36759648377868 ms
-
-#print(timestamp)
-human_entry_i = int(round(timestamp[0]))-1
-print(np.mean(latency))
-#halftime_i = round(((len(latency)-1)-human_entry_i)/2)
-#print(np.mean(latency[human_entry_i:halftime_i]))
-#print(np.mean(latency[halftime_i:len(latency)]))
-
-results = np.load("per_second_fps_dataCol_blueBalloon_30sec_check.npy", allow_pickle=True)
-timestamp = results.item()["color_entry_time"] #31.15688443183899 sec
-fps = results.item()["fps"] #mean: 29.772201347246206
-
-#print(fps[latency_max_i])
-#print(timestamp)
-human_entry_i = int(round(timestamp[0]))-1
-print(np.mean(fps))
-
-for i in range(len(fps)):
-    if latency[i] > fps[i]:
-        print("bad")
-        print(i)
+#bottleneck at index115.
 
 #---------------Colseg data 120 sec stress test-------------#
 #1:

@@ -204,7 +204,7 @@ def audio_process(conn, sr, master_clock):
             if (current_time - start_time) >= latency_interval:
                 dropped.append(dropped_targets)
                 latency.append(calc_t*1000) #latency will be in milliseconds
-                atTime.append(current_time-base_time)
+                atTime.append(current_time-master_clock)
                 dropped_targets = 0
                 counter = 0
                 start_time = time.time()
@@ -214,21 +214,23 @@ def audio_process(conn, sr, master_clock):
         stream.stop()
         stream.close()
 
+        #Latency tests:
+        """
         plt.plot(atTime, latency, color="green")
-        plt.title('HRIR execution latency with blue balloon at ~30 sec')
+        plt.title('HRIR execution latency with human at ~30 sec')
         plt.xlabel('Time (s)')
         plt.ylabel('Latency (ms)')
 
-        plt.savefig("per_sec_latency_plotCol_blueBalloon_30sec_check.png", bbox_inches='tight')
+        plt.savefig("per_sec_latency_plotNN_human_30sec.png", bbox_inches='tight')
 
         plt.clf()
 
         plt.plot(atTime, dropped, color="orange")
-        plt.title('Amount of old targets discarded with blue balloon at ~30 sec')
+        plt.title('Amount of old targets discarded with human at ~30 sec')
         plt.xlabel('Time (s)')
         plt.ylabel('Dropped targets')
     
-        plt.savefig("per_sec_dropped_plotCol_blueBalloon_30sec_check.png", bbox_inches='tight')
+        plt.savefig("per_sec_dropped_plotNN_human_30sec.png", bbox_inches='tight')
 
         results = {
             "time": atTime,
@@ -237,7 +239,8 @@ def audio_process(conn, sr, master_clock):
             "dropped_targets": dropped
         }
 
-        np.save("per_sec_latency_dataCol_blueBalloon_30sec_check.npy", results)
+        np.save("per_sec_latency_dataNN_human_30sec.npy", results)
+        """
 
 #--------------------------------------------------#
 #------------------MAIN CAMERA LOOP----------------#
@@ -302,7 +305,7 @@ if __name__ == "__main__":
 
             fps_interval = 1 #to display the frame rate every x second
             counter = 0
-            base_time = time.time()
+            #base_time = time.time()
             start_time = time.time()
             while True:
                 #get metadata from camera
@@ -371,10 +374,10 @@ if __name__ == "__main__":
                         pixel_area = pixel_w*pixel_h
                         real_area = real_w*real_h
 
-                        #distance = np.sqrt((real_area*focal_area)/float(pixel_area))
+                        distance = np.sqrt((real_area*focal_area)/float(pixel_area))
 
                         img_area = width*height
-                        distance = np.sqrt(focal_area*real_area*img_area/float(pixel_area)/(sensor_size**2))
+                        #distance = np.sqrt(focal_area*real_area*img_area/float(pixel_area)/(sensor_size**2))
                         #if real_area < 0.5:
                         #   chirp.set_len(0.4)
                         
@@ -405,16 +408,16 @@ if __name__ == "__main__":
                 if (current_time - start_time) >= fps_interval:
                     #print("FPS: ", counter / (current_time - start_time))
                     fps.append(counter / (current_time - start_time))
-                    atTime.append(current_time-base_time)
+                    atTime.append(current_time-master_clock)
                     counter = 0
-                    if current_time-base_time >= 120:
+                    if current_time-master_clock >= 120:
                         raise KeyboardInterrupt
                     start_time = time.time()
                 
 
                 #fps.append(1.0 / (current_time - start_time))
-                #atTime.append(current_time-base_time)
-                #if current_time-base_time >= 60:
+                #atTime.append(current_time-master_clock)
+                #if current_time-master_clock >= 60:
                 #    raise KeyboardInterrupt
                 #print("FPS: ", 1.0 / (current_time - start_time)) # FPS = 1 / time to process loop
                 
@@ -434,7 +437,7 @@ if __name__ == "__main__":
             #ellipsoider
             fps_interval = 1 #to display the frame rate every x second
             counter = 0
-            base_time = time.time()
+            #master_clock = time.time()
             start_time = time.time()
             while True:
                 img = picam.capture_array()
@@ -523,17 +526,17 @@ if __name__ == "__main__":
                 if (current_time - start_time) >= fps_interval:
                     #print("FPS: ", counter / (current_time - start_time))
                     fps.append(counter / (current_time - start_time))
-                    atTime.append(current_time-base_time)
+                    atTime.append(current_time-master_clock)
                     counter = 0
-                    if current_time-base_time >= 120:
+                    if current_time-master_clock >= 120:
                         raise KeyboardInterrupt
                     start_time = time.time()
                 
                 """
                 current_time = time.time()
                 fps.append(1.0 / (current_time - start_time))
-                atTime.append(current_time-base_time)
-                if current_time-base_time >= 60:
+                atTime.append(current_time-master_clock)
+                if current_time-master_clock >= 60:
                     raise KeyboardInterrupt
                 """
 
@@ -544,13 +547,14 @@ if __name__ == "__main__":
         picam.stop()
         picam.close()
         
-        
+        #Latency tests
+        """
         plt.plot(atTime, fps)
-        plt.title('Performance of color segmentation per second with blue balloon at ~30 sec')
+        plt.title('Performance of MobileNet SSD per second with human at ~30 sec')
         plt.xlabel('Time (s)')
         plt.ylabel('FPS (1/s)')
         
-        plt.savefig("per_second_fps_plotCol_blueBalloon_30sec_check.png", bbox_inches='tight')
+        plt.savefig("per_second_fps_plotNN_human_30sec.png", bbox_inches='tight')
 
         results = {
             "time": atTime,
@@ -558,4 +562,5 @@ if __name__ == "__main__":
             "color_entry_time": object_time
         }
 
-        np.save("per_second_fps_dataCol_blueBalloon_30sec_check.npy", results)
+        np.save("per_second_fps_dataNN_human_30sec.npy", results)
+        """
