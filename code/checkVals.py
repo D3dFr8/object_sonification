@@ -1,6 +1,6 @@
 import numpy as np
 
-"""
+
 results = np.load("calib_results.npy", allow_pickle=True)
 mtx = results.item()["camera matrix"]
 dist = results.item()["distortion coeff"]
@@ -9,7 +9,7 @@ R = results.item()["rotation vector"]
 
 valid = results.item()["valid imgs"]
 print(len(valid))
-"""
+
 
 """
 #-------------MobileNet fps data------------#

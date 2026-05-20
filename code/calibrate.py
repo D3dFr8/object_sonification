@@ -75,6 +75,68 @@ dst = dst[y:y+h, x:x+w]
 cv.imwrite('testAfter.jpg', dst)
 """
 
+import numpy as np
+import cv2 as cv
+
+# ... [Your setup code remains exactly the same] ...
+
+#------------ calculate re-projection (training) RMSE ------------#
+total_squared_error = 0
+total_train_points = 0
+
+for i in range(len(objpoints)):
+    imgpoints2, _ = cv.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+    
+    # Squeeze arrays to shape (N, 2) for easier math
+    pts_true = imgpoints[i].squeeze()
+    pts_pred = imgpoints2.squeeze()
+    
+    # Calculate squared distances: (x - x_pred)^2 + (y - y_pred)^2
+    squared_dist = np.sum((pts_true - pts_pred)**2, axis=1)
+    
+    total_squared_error += np.sum(squared_dist)
+    total_train_points += len(pts_true)
+
+# True overall RMSE
+train_rmse = np.sqrt(total_squared_error / total_train_points)
+
+
+#---------- validation RMSE ----------#
+total_valid_squared_error = 0
+total_valid_points = 0
+
+for fname in valid_imgs:
+    img = cv.imread(fname)
+    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
+    # Find the chess board corners
+    ret, corners = cv.findChessboardCorners(gray, (13,9), None)
+    print(f'{fname}: {ret}')
+
+    # If found, add object points, image points (after refining them)
+    if ret == True:
+        #get accurate position of corners
+        corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
+
+        #calculate rotation and translation vectors for validation image
+        _, rvec, tvec = cv.solvePnP(objp, corners2, mtx, dist)
+        
+        #use these together with previously known camera matrix to predict where the corners should be
+        projected_corners, _ = cv.projectPoints(objp, rvec, tvec, mtx, dist)
+
+        # Calculate squared error for validation
+        pts_true = corners2.squeeze()
+        pts_pred = projected_corners.squeeze()
+        
+        squared_dist = np.sum((pts_true - pts_pred)**2, axis=1)
+        
+        total_valid_squared_error += np.sum(squared_dist)
+        total_valid_points += len(pts_true)
+
+# True overall validation RMSE
+valid_rmse = np.sqrt(total_valid_squared_error / total_valid_points)
+
+
 #calculate re-projection (training) error
 mean_error = 0
 for i in range(len(objpoints)):
@@ -118,14 +180,11 @@ mean_error_perpoint = total_valid_error/total_points #average error for every po
 print(f'Mean validation error per image: {mean_error_perimg}')
 print(f'Mean validation error per point: {mean_error_perpoint}')
 
-
-"""
-res = np.load("calib_results_wide.npy", allow_pickle=True)
-best_error = res.item()["error"]
-
-#if current error per point is smaller than best error, overwrite the data cus it's better
-if mean_error_perpoint < best_error:
-    results = {
+print("Training Reprojection RMSE: {}".format(train_rmse))
+print(f'Overall Validation RMSE per point: {valid_rmse}')
+#res = np.load("calib_results_wide.npy", allow_pickle=True)
+#best_error = res.item()["error"]
+results = {
     "ret": ret,
     "camera matrix": mtx,
     "distortion coeff": dist,
@@ -134,8 +193,13 @@ if mean_error_perpoint < best_error:
     "obj points": objpoints,
     "img points": imgpoints,
     "valid imgs": valid_imgs,
-    "error": mean_error_perpoint
-    }
+    "error": valid_rmse
+}
 
-    np.save("calib_results_wide.npy", results)
+np.save("calib_results_wide.npy", results)
+
+#if current error per point is smaller than best error, overwrite the data cus it's better
+"""
+if mean_error_perpoint < best_error:
+    
 """

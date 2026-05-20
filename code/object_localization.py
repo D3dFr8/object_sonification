@@ -17,6 +17,7 @@ import cv2 as cv
 import glob
 from scipy.signal import lfilter
 import sounddevice as sd
+import psutil
 
 """
 Framtiden: Logga i en fil och köra med olika filter
@@ -140,7 +141,6 @@ def audio_process(conn, sr, master_clock):
     latency = []
     atTime = []
     object_time = []
-
     dropped = []
     
     try:
@@ -199,38 +199,47 @@ def audio_process(conn, sr, master_clock):
                 state.time_since_last_detection = time.time()
                 state.tracking = True
 
+            
             counter+=1
             current_time = time.time()
             if (current_time - start_time) >= latency_interval:
+
+                #dropped targets and latency measurement:
                 dropped.append(dropped_targets)
                 latency.append(calc_t*1000) #latency will be in milliseconds
                 atTime.append(current_time-master_clock)
                 dropped_targets = 0
                 counter = 0
+
                 start_time = time.time()
+            
 
 
     finally:
         stream.stop()
         stream.close()
 
-        #Latency tests:
-        """
-        plt.plot(atTime, latency, color="green")
-        plt.title('HRIR execution latency with human at ~30 sec')
-        plt.xlabel('Time (s)')
-        plt.ylabel('Latency (ms)')
+        
+        fig, axs = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
+        fig.suptitle('Calculation of HRIR with Colseg with pink balloon - distance test', fontsize=16)
 
-        plt.savefig("per_sec_latency_plotNN_human_30sec.png", bbox_inches='tight')
+        # 1. Plot latency
+        axs[0].plot(atTime, latency, color='green')
+        axs[0].set_ylabel('HRIR Latency (ms)')
+        axs[0].grid(True, linestyle='--', alpha=0.6)
 
-        plt.clf()
+        # 2. Plot dropped targets
+        axs[1].plot(atTime, dropped, color='orange')
+        axs[1].set_ylabel('Dropped targets')
+        axs[1].set_xlabel('Time (s)') # Only the bottom graph needs the X-axis label
+        axs[1].grid(True, linestyle='--', alpha=0.6)
 
-        plt.plot(atTime, dropped, color="orange")
-        plt.title('Amount of old targets discarded with human at ~30 sec')
-        plt.xlabel('Time (s)')
-        plt.ylabel('Dropped targets')
-    
-        plt.savefig("per_sec_dropped_plotNN_human_30sec.png", bbox_inches='tight')
+        # Adjust layout so the labels don't overlap
+        plt.tight_layout()
+        plt.subplots_adjust(top=0.93) # Leave room for the main title
+
+        # Save
+        plt.savefig("col_latency_blueBalloon_subplots.png", bbox_inches='tight')
 
         results = {
             "time": atTime,
@@ -239,9 +248,8 @@ def audio_process(conn, sr, master_clock):
             "dropped_targets": dropped
         }
 
-        np.save("per_sec_latency_dataNN_human_30sec.npy", results)
-        """
-
+        np.save("latency_dataCol_blueBalloon.npy", results)
+        
 #--------------------------------------------------#
 #------------------MAIN CAMERA LOOP----------------#
 #--------------------------------------------------#
@@ -249,6 +257,13 @@ if __name__ == "__main__":
     fps = []
     atTime = []
     object_time = []
+
+    cpu_data = []
+    ram_data_overall = []
+    ram_data_process = []
+    temp_data = []
+
+    this_process = psutil.Process()
 
     localization_type = "col"
     if len(sys.argv) > 1:
@@ -322,6 +337,8 @@ if __name__ == "__main__":
                     biggest_box = 0
                     #minimum confidence for an object to be considered
                     threshold = 0.5
+                    
+                    
                     for i in range(len(boxes)):
                         if scores[i] > threshold and classes[i] == 0:
                             if len(object_time) == 0:
@@ -330,6 +347,7 @@ if __name__ == "__main__":
                             if area > biggest_box:
                                 biggest_box = area
                                 idx_biggest = i
+                    
 
                     if idx_biggest >= 0:
                         # extract normalized coordinates, confidence and object type
@@ -406,10 +424,32 @@ if __name__ == "__main__":
                 counter+=1
                 current_time = time.time()
                 if (current_time - start_time) >= fps_interval:
-                    #print("FPS: ", counter / (current_time - start_time))
+                    #CPU:
+                    cpu_cores = psutil.cpu_percent(percpu=True)
+                    overall_cpu = sum(cpu_cores) / len(cpu_cores)
+                    
+                    #RAM:
+                    ram = psutil.virtual_memory().percent
+                    #convert from bytes to MB for this specific process
+                    process_ram_mb = this_process.memory_info().rss / (1024*1024)
+
+                    #Temperature (only on raspi):
+                    try:
+                        with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+                            temp_c = int(f.read()) / 1000.0
+                    except FileNotFoundError:
+                        temp_c = 0.0
+
+                    cpu_data.append(overall_cpu)
+                    ram_data_overall.append(ram)
+                    ram_data_process.append(process_ram_mb)
+                    temp_data.append(temp_c)
+
+                    #FPS measurement:
                     fps.append(counter / (current_time - start_time))
-                    atTime.append(current_time-master_clock)
                     counter = 0
+
+                    atTime.append(current_time-master_clock)
                     if current_time-master_clock >= 120:
                         raise KeyboardInterrupt
                     start_time = time.time()
@@ -434,7 +474,6 @@ if __name__ == "__main__":
             picam.start()
             time.sleep(3)
 
-            #ellipsoider
             fps_interval = 1 #to display the frame rate every x second
             counter = 0
             #master_clock = time.time()
@@ -524,21 +563,36 @@ if __name__ == "__main__":
                 counter+=1
                 current_time = time.time()
                 if (current_time - start_time) >= fps_interval:
-                    #print("FPS: ", counter / (current_time - start_time))
+                    #CPU:
+                    cpu_cores = psutil.cpu_percent(percpu=True)
+                    overall_cpu = sum(cpu_cores) / len(cpu_cores)
+                    
+                    #RAM:
+                    ram = psutil.virtual_memory().percent
+                    #convert from bytes to MB for this specific process
+                    process_ram_mb = this_process.memory_info().rss / (1024*1024)
+
+                    #Temperature (only on raspi):
+                    try:
+                        with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+                            temp_c = int(f.read()) / 1000.0
+                    except FileNotFoundError:
+                        temp_c = 0.0
+
+                    cpu_data.append(overall_cpu)
+                    ram_data_overall.append(ram)
+                    ram_data_process.append(process_ram_mb)
+                    temp_data.append(temp_c)
+
+                    #FPS measurement:
                     fps.append(counter / (current_time - start_time))
-                    atTime.append(current_time-master_clock)
                     counter = 0
+
+                    atTime.append(current_time-master_clock)
                     if current_time-master_clock >= 120:
                         raise KeyboardInterrupt
                     start_time = time.time()
-                
-                """
-                current_time = time.time()
-                fps.append(1.0 / (current_time - start_time))
-                atTime.append(current_time-master_clock)
-                if current_time-master_clock >= 60:
-                    raise KeyboardInterrupt
-                """
+
 
     except KeyboardInterrupt:
         parent_conn.send(False)
@@ -547,7 +601,7 @@ if __name__ == "__main__":
         picam.stop()
         picam.close()
         
-        #Latency tests
+        #fps tests
         """
         plt.plot(atTime, fps)
         plt.title('Performance of MobileNet SSD per second with human at ~30 sec')
@@ -564,3 +618,55 @@ if __name__ == "__main__":
 
         np.save("per_second_fps_dataNN_human_30sec.npy", results)
         """
+
+        #CPU, RAM, fps, and temperature tests
+        fig, axs = plt.subplots(5, 1, figsize=(10, 10), sharex=True)
+        fig.suptitle('Hardware load of ColSeg with blue balloon', fontsize=16)
+
+        # 1. Plot CPU
+        axs[0].plot(atTime, cpu_data, color='green')
+        axs[0].set_ylabel('CPU Usage (%)')
+        axs[0].grid(True, linestyle='--', alpha=0.6)
+
+        # 2. Plot Temperature
+        axs[1].plot(atTime, temp_data, color='red')
+        axs[1].set_ylabel('Temperature (°C)')
+        # Optional: Add a dashed line showing the Pi's thermal throttle limit (usually ~80-85C)
+        axs[1].axhline(y=80, color='black', linestyle='--', label='Throttle Limit') 
+        axs[1].grid(True, linestyle='--', alpha=0.6)
+
+        # 3. Plot RAM (RSS)
+        axs[2].plot(atTime, ram_data_process, color='purple')
+        axs[2].set_ylabel('RAM RSS (MB)')
+        axs[2].grid(True, linestyle='--', alpha=0.6)
+
+        # 4. Plot overall system RAM
+        axs[3].plot(atTime, ram_data_overall, color='brown')
+        axs[3].set_ylabel('system RAM (%)')
+        axs[3].grid(True, linestyle='--', alpha=0.6)
+
+        # 5. Plot FPS
+        axs[4].plot(atTime, fps, color='blue')
+        axs[4].set_ylabel('FPS')
+        axs[4].set_xlabel('Time (s)') # Only the bottom graph needs the X-axis label
+        axs[4].grid(True, linestyle='--', alpha=0.6)
+
+        # Adjust layout so the labels don't overlap
+        plt.tight_layout()
+        plt.subplots_adjust(top=0.93) # Leave room for the main title
+
+        # Save
+        plt.savefig("col_blueBalloon_subplots.png", bbox_inches='tight')
+        plt.show()
+
+        results = {
+            "time": atTime,
+            "fps": fps,
+            "cpu": cpu_data,
+            "temp": temp_data,
+            "ram_rss": ram_data_process,
+            "ram_sys":ram_data_overall,
+            "color_entry_time": object_time
+        }
+
+        np.save("fps_RAM_CPU_temp_dataCol_blueBalloon.npy", results)
