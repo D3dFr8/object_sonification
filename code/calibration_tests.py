@@ -9,7 +9,7 @@ objp = np.zeros((13*9,3), np.float32)
 sq_size = 40
 objp[:,:2] = np.mgrid[0:13,0:9].T.reshape(-1,2) * sq_size
 
-results = np.load("calib_results_wide.npy", allow_pickle=True)
+results = np.load("calib_results.npy", allow_pickle=True)
 ret = results.item()["ret"]
 mtx = results.item()["camera matrix"]
 dist = results.item()["distortion coeff"]
@@ -19,7 +19,7 @@ objpoints = results.item()["obj points"]
 imgpoints = results.item()["img points"]
 valid_imgs = results.item()["valid imgs"]
 
-
+"""
 img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/testWide.jpg')
 h,  w = img.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 0, (w,h))
@@ -31,7 +31,7 @@ dst = cv.undistort(img, mtx, dist, None, newcameramtx)
 x, y, w, h = roi
 dst = dst[y:y+h, x:x+w]
 cv.imwrite('testWideAfter.jpg', dst)
-
+"""
 
 #------------ calculate re-projection (training) error ------------#
 mean_error = 0

@@ -26,7 +26,7 @@ path = os.path.abspath(os.getcwd())
 images = glob.glob(path+'/imagesForCalibWide/*.jpg')
 random.shuffle(images)
 
-split_idx = int(len(images)*0.7)
+split_idx = int(len(images)*0.6)
 train_imgs = images[:split_idx] #training set
 valid_imgs = images[split_idx:] #validation set
 #print(images)
@@ -182,9 +182,13 @@ print(f'Mean validation error per point: {mean_error_perpoint}')
 
 print("Training Reprojection RMSE: {}".format(train_rmse))
 print(f'Overall Validation RMSE per point: {valid_rmse}')
-#res = np.load("calib_results_wide.npy", allow_pickle=True)
-#best_error = res.item()["error"]
-results = {
+res = np.load("calib_results_wide.npy", allow_pickle=True)
+best_error = res.item()["error"]
+
+#if current error per point is smaller than best error, overwrite the data cus it's better
+
+if valid_rmse < best_error:
+    results = {
     "ret": ret,
     "camera matrix": mtx,
     "distortion coeff": dist,
@@ -194,12 +198,6 @@ results = {
     "img points": imgpoints,
     "valid imgs": valid_imgs,
     "error": valid_rmse
-}
+    }
 
-np.save("calib_results_wide.npy", results)
-
-#if current error per point is smaller than best error, overwrite the data cus it's better
-"""
-if mean_error_perpoint < best_error:
-    
-"""
+    np.save("calib_results_wide.npy", results)

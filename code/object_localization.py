@@ -206,11 +206,19 @@ def audio_process(conn, sr, master_clock):
 
                 #dropped targets and latency measurement:
                 dropped.append(dropped_targets)
-                latency.append(calc_t*1000) #latency will be in milliseconds
-                atTime.append(current_time-master_clock)
+
+                latency_val = calc_t*1000
+                latency.append(latency_val) #latency will be in milliseconds
+
+                time_val = current_time-master_clock
+                atTime.append(time_val)
+
+                with open("Col_10min_latency_stress_10000pix_log.csv", "a") as log:
+                    log.write(f"{time_val},{latency_val},{dropped_targets}\n")
+
                 dropped_targets = 0
                 counter = 0
-
+                
                 start_time = time.time()
             
 
@@ -219,9 +227,8 @@ def audio_process(conn, sr, master_clock):
         stream.stop()
         stream.close()
 
-        
         fig, axs = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
-        fig.suptitle('Calculation of HRIR with Colseg with pink balloon - distance test', fontsize=16)
+        fig.suptitle('Calculation of HRIR with ColSeg (blue) - 10 min with 10000 pixel area', fontsize=16)
 
         # 1. Plot latency
         axs[0].plot(atTime, latency, color='green')
@@ -239,7 +246,7 @@ def audio_process(conn, sr, master_clock):
         plt.subplots_adjust(top=0.93) # Leave room for the main title
 
         # Save
-        plt.savefig("col_latency_blueBalloon_subplots.png", bbox_inches='tight')
+        plt.savefig("Col_latency_10min_stress_10000pix_subplots.png", bbox_inches='tight')
 
         results = {
             "time": atTime,
@@ -248,7 +255,7 @@ def audio_process(conn, sr, master_clock):
             "dropped_targets": dropped
         }
 
-        np.save("latency_dataCol_blueBalloon.npy", results)
+        np.save("Col_10min_latency_10000pix_data.npy", results)
         
 #--------------------------------------------------#
 #------------------MAIN CAMERA LOOP----------------#
@@ -340,7 +347,7 @@ if __name__ == "__main__":
                     
                     
                     for i in range(len(boxes)):
-                        if scores[i] > threshold and classes[i] == 0:
+                        if scores[i] > threshold: #and classes[i] == 0:
                             if len(object_time) == 0:
                                 object_time.append(time.time()-master_clock)
                             area = boxes[i][2]*boxes[i][3]
@@ -446,11 +453,17 @@ if __name__ == "__main__":
                     temp_data.append(temp_c)
 
                     #FPS measurement:
-                    fps.append(counter / (current_time - start_time))
+                    fps_val = counter / (current_time - start_time)
+                    fps.append(fps_val)
                     counter = 0
 
-                    atTime.append(current_time-master_clock)
-                    if current_time-master_clock >= 120:
+                    time_val = current_time-master_clock
+                    atTime.append(time_val)
+
+                    with open("NN_1_hour_stress_test_log.csv", "a") as log:
+                        log.write(f"{time_val},{overall_cpu},{process_ram_mb},{ram},{temp_c},{fps_val}\n")
+
+                    if current_time-master_clock >= 3600:
                         raise KeyboardInterrupt
                     start_time = time.time()
                 
@@ -463,7 +476,7 @@ if __name__ == "__main__":
                 
         elif localization_type == "col":
             scale = 4
-            #configure camera with fps and resolution. Half of the OG resolution is used to ensure stable performance
+            #configure camera with fps and resolution. An eighth of the OG resolution is used to ensure stable performance
             config = picam.create_preview_configuration(
                 main={"size": (int(2028/scale), int(1520/scale)), "format": "XRGB8888"},
                 controls={"FrameDurationLimits": (33333, 33333)}
@@ -496,7 +509,7 @@ if __name__ == "__main__":
                 contours, _ = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
                 
                 #minimum pixel area of object to consider (10x10 size)
-                MIN_AREA = 400 / (scale**2)
+                MIN_AREA = 10000 / (scale**2)
                 
                 #filter contours to only include those larger than 10x10 pixels
                 filtered_contours = []
@@ -585,11 +598,17 @@ if __name__ == "__main__":
                     temp_data.append(temp_c)
 
                     #FPS measurement:
-                    fps.append(counter / (current_time - start_time))
+                    fps_val = counter / (current_time - start_time)
+                    fps.append(fps_val)
                     counter = 0
 
-                    atTime.append(current_time-master_clock)
-                    if current_time-master_clock >= 120:
+                    time_val = current_time-master_clock
+                    atTime.append(time_val)
+
+                    with open("Col_10min_stress_10000pix_log.csv", "a") as log:
+                        log.write(f"{time_val},{overall_cpu},{process_ram_mb},{ram},{temp_c},{fps_val}\n")
+
+                    if current_time-master_clock >= 600:
                         raise KeyboardInterrupt
                     start_time = time.time()
 
@@ -621,7 +640,7 @@ if __name__ == "__main__":
 
         #CPU, RAM, fps, and temperature tests
         fig, axs = plt.subplots(5, 1, figsize=(10, 10), sharex=True)
-        fig.suptitle('Hardware load of ColSeg with blue balloon', fontsize=16)
+        fig.suptitle('Hardware load of ColSeg (blue) - 10min with 10000 pixel area', fontsize=16)
 
         # 1. Plot CPU
         axs[0].plot(atTime, cpu_data, color='green')
@@ -656,7 +675,7 @@ if __name__ == "__main__":
         plt.subplots_adjust(top=0.93) # Leave room for the main title
 
         # Save
-        plt.savefig("col_blueBalloon_subplots.png", bbox_inches='tight')
+        plt.savefig("Col_10min_stress_10000pix_subplots.png", bbox_inches='tight')
         plt.show()
 
         results = {
@@ -669,4 +688,4 @@ if __name__ == "__main__":
             "color_entry_time": object_time
         }
 
-        np.save("fps_RAM_CPU_temp_dataCol_blueBalloon.npy", results)
+        np.save("Col_10min_stress_10000pix_data.npy", results)
