@@ -295,7 +295,7 @@ if __name__ == "__main__":
     p.start()
 
     #get dictionary with results from the calibration
-    calib_results = np.load("calib_results.npy", allow_pickle=True)
+    calib_results = np.load("calib_results_70-30.npy", allow_pickle=True)
     #resolution for calibration images was 4056 × 3040, so we take half of that
     cam_mtx = calib_results.item()["camera matrix"]*0.5
     cam_mtx[2,2] = 1.0

@@ -26,7 +26,7 @@ path = os.path.abspath(os.getcwd())
 images = glob.glob(path+'/imagesForCalibWide/*.jpg')
 random.shuffle(images)
 
-split_idx = int(len(images)*0.6)
+split_idx = int(len(images)*0.7) #CHANGE THIS FOR DATASET SPLIT
 train_imgs = images[:split_idx] #training set
 valid_imgs = images[split_idx:] #validation set
 #print(images)
@@ -75,11 +75,6 @@ dst = dst[y:y+h, x:x+w]
 cv.imwrite('testAfter.jpg', dst)
 """
 
-import numpy as np
-import cv2 as cv
-
-# ... [Your setup code remains exactly the same] ...
-
 #------------ calculate re-projection (training) RMSE ------------#
 total_squared_error = 0
 total_train_points = 0
@@ -111,7 +106,7 @@ for fname in valid_imgs:
 
     # Find the chess board corners
     ret, corners = cv.findChessboardCorners(gray, (13,9), None)
-    print(f'{fname}: {ret}')
+    #print(f'{fname}: {ret}')
 
     # If found, add object points, image points (after refining them)
     if ret == True:
@@ -144,7 +139,8 @@ for i in range(len(objpoints)):
     error = cv.norm(imgpoints[i], imgpoints2, cv.NORM_L2)/len(imgpoints2)
     mean_error += error
 
-print( "re-projection error: {}".format(mean_error/len(objpoints)) )
+reproj_err = mean_error/len(objpoints)
+print( "re-projection error: {}".format(reproj_err) )
 
 
 #---------- validation ----------#
@@ -174,15 +170,34 @@ for fname in valid_imgs:
         total_valid_error += error
         total_points += len(corners2)
 
-mean_error_perimg = total_valid_error/len(valid_imgs) #sum of all errors in one image (on average)
+#mean_error_perimg = total_valid_error/len(valid_imgs) #sum of all errors in one image (on average)
 mean_error_perpoint = total_valid_error/total_points #average error for every point
 
-print(f'Mean validation error per image: {mean_error_perimg}')
+#print(f'Mean validation error per image: {mean_error_perimg}')
 print(f'Mean validation error per point: {mean_error_perpoint}')
 
 print("Training Reprojection RMSE: {}".format(train_rmse))
 print(f'Overall Validation RMSE per point: {valid_rmse}')
-res = np.load("calib_results_wide.npy", allow_pickle=True)
+
+with open("calib_results_wide_70-30.csv", "a") as log:
+    log.write(f"{reproj_err},{mean_error_perpoint},{train_rmse},{valid_rmse}\n")
+
+
+results = {
+    "ret": ret,
+    "camera matrix": mtx,
+    "distortion coeff": dist,
+    "rotation vector": rvecs,
+    "translation vector": tvecs,
+    "obj points": objpoints,
+    "img points": imgpoints,
+    "valid imgs": valid_imgs,
+    "error": valid_rmse
+    }
+
+np.save("calib_results_wide_70-30.npy", results)
+"""
+res = np.load("calib_results_wide_70-30.npy", allow_pickle=True)
 best_error = res.item()["error"]
 
 #if current error per point is smaller than best error, overwrite the data cus it's better
@@ -200,4 +215,5 @@ if valid_rmse < best_error:
     "error": valid_rmse
     }
 
-    np.save("calib_results_wide.npy", results)
+    np.save("calib_results_wide_70-30.npy", results)
+"""

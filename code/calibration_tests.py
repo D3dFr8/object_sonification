@@ -9,7 +9,7 @@ objp = np.zeros((13*9,3), np.float32)
 sq_size = 40
 objp[:,:2] = np.mgrid[0:13,0:9].T.reshape(-1,2) * sq_size
 
-results = np.load("calib_results.npy", allow_pickle=True)
+results = np.load("calib_results_90-10.npy", allow_pickle=True)
 ret = results.item()["ret"]
 mtx = results.item()["camera matrix"]
 dist = results.item()["distortion coeff"]
@@ -19,8 +19,7 @@ objpoints = results.item()["obj points"]
 imgpoints = results.item()["img points"]
 valid_imgs = results.item()["valid imgs"]
 
-"""
-img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/testWide.jpg')
+img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/testLines.jpg')
 h,  w = img.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 0, (w,h))
 
@@ -30,8 +29,8 @@ dst = cv.undistort(img, mtx, dist, None, newcameramtx)
 # crop the image
 x, y, w, h = roi
 dst = dst[y:y+h, x:x+w]
-cv.imwrite('testWideAfter.jpg', dst)
-"""
+cv.imwrite('testLinesAfter_90-10.jpg', dst)
+
 
 #------------ calculate re-projection (training) error ------------#
 mean_error = 0
@@ -71,8 +70,6 @@ for fname in valid_imgs:
         total_points += len(corners2)
 
 
-# ... [Your setup code remains exactly the same] ...
-
 #------------ calculate re-projection (training) RMSE ------------#
 total_squared_error = 0
 total_train_points = 0
@@ -92,7 +89,6 @@ for i in range(len(objpoints)):
 
 # True overall RMSE
 train_rmse = np.sqrt(total_squared_error / total_train_points)
-print("Training Reprojection RMSE: {}".format(train_rmse))
 
 
 #---------- validation RMSE ----------#
@@ -105,7 +101,7 @@ for fname in valid_imgs:
 
     # Find the chess board corners
     ret, corners = cv.findChessboardCorners(gray, (13,9), None)
-    print(f'{fname}: {ret}')
+    #print(f'{fname}: {ret}')
 
     # If found, add object points, image points (after refining them)
     if ret == True:
@@ -129,10 +125,13 @@ for fname in valid_imgs:
 
 # True overall validation RMSE
 valid_rmse = np.sqrt(total_valid_squared_error / total_valid_points)
-print(f'Overall Validation RMSE per point: {valid_rmse}')
 
-mean_error_perimg = total_valid_error/len(valid_imgs) #sum of all errors in one image (on average)
+
+#mean_error_perimg = total_valid_error/len(valid_imgs) #sum of all errors in one image (on average)
 mean_error_perpoint = total_valid_error/total_points #average error for every point
 
-print(f'Mean validation error per image: {mean_error_perimg}')
+#print(f'Mean validation error per image: {mean_error_perimg}')
 print(f'Mean validation error per point: {mean_error_perpoint}')
+
+print("Training Reprojection RMSE: {}".format(train_rmse))
+print(f'Overall Validation RMSE per point: {valid_rmse}')
