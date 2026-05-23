@@ -501,7 +501,7 @@ if __name__ == "__main__":
                 mask = cv.inRange(hsv, lower_blue, upper_blue)
                 kernel = np.ones((5, 5), np.uint8)
                 
-                #clean up noise using morphology (erosion and dilation)
+                #clean up noise using morphology with a kernel. Opening (erosion, dilation) and Closing (dilation, erosion)
                 mask = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
                 mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel)
 
