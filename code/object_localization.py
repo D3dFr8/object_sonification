@@ -59,8 +59,8 @@ upper_pink = np.array([165, 255, 255])
 lower_red2 = np.array([170, 50, 16])
 upper_red2 = np.array([180, 255, 255])
             
-balloon_w = 0.20
-balloon_h = 0.35
+balloon_w = 0.26
+balloon_h = 0.40
 real_area_color = balloon_w*balloon_h
 
 sensor_size = 0.007857
@@ -199,7 +199,7 @@ def audio_process(conn, sr, master_clock):
                 state.time_since_last_detection = time.time()
                 state.tracking = True
 
-            
+            """
             counter+=1
             current_time = time.time()
             if (current_time - start_time) >= latency_interval:
@@ -220,6 +220,7 @@ def audio_process(conn, sr, master_clock):
                 counter = 0
                 
                 start_time = time.time()
+            """
             
 
 
@@ -227,6 +228,7 @@ def audio_process(conn, sr, master_clock):
         stream.stop()
         stream.close()
 
+        """
         fig, axs = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
         fig.suptitle('Calculation of HRIR with ColSeg (blue) - 10 min with 10000 pixel area', fontsize=16)
 
@@ -256,6 +258,7 @@ def audio_process(conn, sr, master_clock):
         }
 
         np.save("Col_10min_latency_10000pix_data.npy", results)
+        """
         
 #--------------------------------------------------#
 #------------------MAIN CAMERA LOOP----------------#
@@ -305,7 +308,16 @@ if __name__ == "__main__":
     focal_lenx = cam_mtx[0,0]
     focal_leny = cam_mtx[1,1]
     focal_area = focal_lenx*focal_leny
-        
+    
+    # --- TRACKING VARIABLES SETUP ---
+    last_known_distance = 0.0
+    frames_lost_count = 0
+    is_tracking = False
+
+    # How many consecutive frames the object must be missing to be considered "lost". 
+    # At 30 FPS, 15 frames is 0.5 seconds.
+    LOSS_THRESHOLD = 30
+
     #init camera
     picam = Picamera2()
     model = "/usr/share/imx500-models/imx500_network_ssd_mobilenetv2_fpnlite_320x320_pp.rpk"
@@ -347,7 +359,7 @@ if __name__ == "__main__":
                     
                     
                     for i in range(len(boxes)):
-                        if scores[i] > threshold: #and classes[i] == 0:
+                        if scores[i] > threshold and classes[i] == 0:
                             if len(object_time) == 0:
                                 object_time.append(time.time()-master_clock)
                             area = boxes[i][2]*boxes[i][3]
@@ -401,6 +413,12 @@ if __name__ == "__main__":
 
                         distance = np.sqrt((real_area*focal_area)/float(pixel_area))
 
+                        last_known_distance = distance  # 'd' is your calculated distance variable
+                        frames_lost_count = 0    # Reset the lost counter because we see the target
+                        
+                        if not is_tracking:
+                            print(f"Target Acquired! Tracking started at {distance:.2f} meters.")
+                            is_tracking = True
                         img_area = width*height
                         #distance = np.sqrt(focal_area*real_area*img_area/float(pixel_area)/(sensor_size**2))
                         #if real_area < 0.5:
@@ -423,11 +441,28 @@ if __name__ == "__main__":
                         
                         #send target point to pipeline for audio
                         parent_conn.send(target)
+                    else:
+                        if is_tracking:
+                            frames_lost_count += 1
+                            
+                            # 3. Check if it has been missing for too many frames
+                            if frames_lost_count >= LOSS_THRESHOLD:
+                                print(f"\n--- TARGET LOST ---")
+                                print(f"Maximum Distance Recorded: {last_known_distance:.2f} meters")
+                                print(f"-------------------\n")
+                                
+                                # Reset state so it waits for the next time you walk into frame
+                                is_tracking = False 
+                                
+                                # Optional: Save to a file so you don't lose the data
+                                with open("dropoff_distances.txt", "a") as f:
+                                    f.write(f"Lost at: {last_known_distance:.2f} meters\n")
                 
                 print("-------------------------------------------")
 
                 #time.sleep(0.01)
                 
+                """
                 counter+=1
                 current_time = time.time()
                 if (current_time - start_time) >= fps_interval:
@@ -466,6 +501,7 @@ if __name__ == "__main__":
                     if current_time-master_clock >= 3600:
                         raise KeyboardInterrupt
                     start_time = time.time()
+                """
                 
 
                 #fps.append(1.0 / (current_time - start_time))
@@ -509,7 +545,7 @@ if __name__ == "__main__":
                 contours, _ = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
                 
                 #minimum pixel area of object to consider (10x10 size)
-                MIN_AREA = 10000 / (scale**2)
+                MIN_AREA = 5000 / (scale**2)
                 
                 #filter contours to only include those larger than 10x10 pixels
                 filtered_contours = []
@@ -550,6 +586,13 @@ if __name__ == "__main__":
 
                     distance = np.sqrt((real_area_color*focal_area)/float(pixel_area))
 
+                    last_known_distance = distance  # 'd' is your calculated distance variable
+                    frames_lost_count = 0    # Reset the lost counter because we see the target
+                        
+                    if not is_tracking:
+                        print(f"Target Acquired! Tracking started at {distance:.2f} meters.")
+                        is_tracking = True
+                    #img_area = width*height
                     #if real_area_color < 0.15:
                      #   chirp.set_len(2)
 
@@ -567,12 +610,29 @@ if __name__ == "__main__":
                     
                     #send target point to pipeline for audio
                     parent_conn.send(target)
-                
+                else:
+                    if is_tracking:
+                        frames_lost_count += 1
+                            
+                        # 3. Check if it has been missing for too many frames
+                        if frames_lost_count >= LOSS_THRESHOLD:
+                            print(f"\n--- TARGET LOST ---")
+                            print(f"Maximum Distance Recorded: {last_known_distance:.2f} meters")
+                            print(f"-------------------\n")
+                                
+                            # Reset state so it waits for the next time you walk into frame
+                            is_tracking = False 
+                                
+                            # Optional: Save to a file so you don't lose the data
+                            with open("dropoff_distances.txt", "a") as f:
+                                f.write(f"Lost at: {last_known_distance:.2f} meters\n")
+
                 print("-------------------------------------------")
+
                 
                 
                 #time.sleep(0.01)
-                
+                """
                 counter+=1
                 current_time = time.time()
                 if (current_time - start_time) >= fps_interval:
@@ -611,6 +671,7 @@ if __name__ == "__main__":
                     if current_time-master_clock >= 600:
                         raise KeyboardInterrupt
                     start_time = time.time()
+                """
 
 
     except KeyboardInterrupt:
@@ -638,6 +699,7 @@ if __name__ == "__main__":
         np.save("per_second_fps_dataNN_human_30sec.npy", results)
         """
 
+        """
         #CPU, RAM, fps, and temperature tests
         fig, axs = plt.subplots(5, 1, figsize=(10, 10), sharex=True)
         fig.suptitle('Hardware load of ColSeg (blue) - 10min with 10000 pixel area', fontsize=16)
@@ -689,3 +751,4 @@ if __name__ == "__main__":
         }
 
         np.save("Col_10min_stress_10000pix_data.npy", results)
+        """
