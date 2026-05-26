@@ -545,6 +545,8 @@ if __name__ == "__main__":
                 contours, _ = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
                 
                 #minimum pixel area of object to consider (10x10 size)
+                # default: 400, 
+                # same dropoff distance as with NN: 10,000
                 MIN_AREA = 5000 / (scale**2)
                 
                 #filter contours to only include those larger than 10x10 pixels

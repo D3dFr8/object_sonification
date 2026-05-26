@@ -1,7 +1,7 @@
 import numpy as np
 import csv
 
-
+"""
 results = np.load("calib_results_70-30.npy", allow_pickle=True)
 mtx = results.item()["camera matrix"]
 dist = results.item()["distortion coeff"]
@@ -13,7 +13,7 @@ print(mtx)
 print(dist)
 print(T)
 print(R)
-
+"""
 
 """
 with open("test_data/calibration/calib_results_wide_90-10.csv", mode='r') as file:
@@ -309,25 +309,35 @@ for i in range(len(fps)):
         print(i)
 """
 
-"""
+
 #---------------MobileNet system load 1h data-------------#
-results = np.load("NN_1h_stress_data.npy", allow_pickle=True)
+results = np.load("Col_1h_stress_data.npy", allow_pickle=True)
 cpu_data = results.item()["cpu"] #mean:  %
 temp_data = results.item()["temp"] #mean:  C
 rss = results.item()["ram_rss"] #mean:  MB
 ram = results.item()["ram_sys"] #mean:  %
 fps = results.item()["fps"] #mean: 
+time = results.item()["time"]
+"""
 print(np.mean(cpu_data))
 print(np.mean(temp_data))
 print(np.mean(rss))
 print(np.mean(ram))
 print(np.mean(fps))
+"""
+indices = []
+for i in range(len(cpu_data)):
+    if cpu_data[i] < 20:
+        indices.append(i)
+
+for i in indices:
+    print(time[i])
 
 results = np.load("NN_1h_latency_data.npy", allow_pickle=True)
 latency = results.item()["latency"] #mean: ms
-print(np.mean(latency))
+#print(np.mean(latency))
 dropped = results.item()["dropped_targets"]
-"""
+
 
 """
 #---------------ColSeg system load 1h data-------------#
