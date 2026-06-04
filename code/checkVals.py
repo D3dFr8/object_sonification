@@ -1,18 +1,106 @@
 import numpy as np
+import cv2
 import csv
 
-"""
-results = np.load("calib_results_70-30.npy", allow_pickle=True)
-mtx = results.item()["camera matrix"]
-dist = results.item()["distortion coeff"]
-T = results.item()["translation vector"]
-R = results.item()["rotation vector"]
+imgLoad = cv2.imread('testLines.jpg', 0)
+ogImg = cv2.resize(imgLoad, (4055, 3039))
 
-valid = results.item()["valid imgs"]
-print(mtx)
-print(dist)
-print(T)
-print(R)
+#undistorted images dictionary
+undistorted_images = {
+    '60-40': cv2.imread('testLinesAfter_60-40.jpg', 0),
+    '70-30': cv2.imread('testLinesAfter_70-30.jpg', 0),
+    '80-20': cv2.imread('testLinesAfter_80-20.jpg', 0),
+    '90-10': cv2.imread('testLinesAfter_90-10.jpg', 0)
+}
+
+#blur to reduce paper texture noise ---
+ogImg_blurred = cv2.GaussianBlur(ogImg, (5, 5), 0)
+
+#adaptive thresholding:
+#55 is the block size (how large of a neighborhood it looks at)
+#5 is the constant subtracted from the mean (tweaks the sensitivity)
+og_lines = cv2.adaptiveThreshold(
+    ogImg_blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+    cv2.THRESH_BINARY_INV, 55, 5
+)
+
+h, w = ogImg.shape
+
+for split_name, img_undist in undistorted_images.items():
+    
+    #apply same blur and adaptive threshold to the undistorted image
+    img_undist_blurred = cv2.GaussianBlur(img_undist, (5, 5), 0)
+    undist_lines = cv2.adaptiveThreshold(
+        img_undist_blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+        cv2.THRESH_BINARY_INV, 55, 5
+    )
+    
+    #find unique and overlapping lines
+    unique_to_undist = cv2.subtract(undist_lines, og_lines) 
+    unique_to_og = cv2.subtract(og_lines, undist_lines)
+    overlap = cv2.bitwise_and(og_lines, undist_lines)
+    
+    #create blank white BGR canvas
+    color_diff = np.ones((h, w, 3), dtype=np.uint8) * 255
+    
+    #apply distinct colors (BGR)
+    color_diff[unique_to_og == 255] = [200, 200, 200]  # og lines = Light Gray
+    color_diff[unique_to_undist == 255] = [0, 0, 255]  # undistorted lines = Red
+    color_diff[overlap == 255] = [0, 0, 0]             # overlap = Black
+    
+    #count number of pixels in the lines that were moved
+    pixels_moved = np.count_nonzero(unique_to_og)
+    
+    #count total number of line pixels in the original image
+    total_line_pixels = np.count_nonzero(og_lines)
+    
+    #percentage of the image's lines that was warped
+    percent_warped = (pixels_moved / total_line_pixels) * 100
+    
+    print(f"For {split_name}: {pixels_moved} pixels shifted ({percent_warped:.2f}% of the lines)")
+    
+    #save the colored difference map
+    output_filename = f'testLinesdiffOutput_Color_{split_name}.jpg'
+    cv2.imwrite(output_filename, color_diff)
+    print(f"Saved: {output_filename}")
+
+#For 60-40: 329019 pixels shifted (89.10% of the lines)
+#For 70-30: 322206 pixels shifted (87.25% of the lines)
+#For 80-20: 336070 pixels shifted (91.00% of the lines)
+#For 90-10: 319710 pixels shifted (86.57% of the lines)
+
+
+"""
+results1 = np.load("calib_results_wide_60-40.npy", allow_pickle=True)
+results2 = np.load("calib_results_wide_70-30.npy", allow_pickle=True)
+results3 = np.load("calib_results_wide_80-20.npy", allow_pickle=True)
+results4 = np.load("calib_results_wide_90-10.npy", allow_pickle=True)
+mtx1= results1.item()["camera matrix"]
+mtx2= results2.item()["camera matrix"]
+mtx3= results3.item()["camera matrix"]
+mtx4= results4.item()["camera matrix"]
+
+dist = results1.item()["distortion coeff"]
+T = results1.item()["translation vector"]
+R = results1.item()["rotation vector"]
+
+valid = results1.item()["valid imgs"]
+#print(mtx1)
+#print(dist)
+fx_all = [mtx1[0][0], mtx2[0][0], mtx3[0][0], mtx4[0][0]]
+fy_all = [mtx1[1][1], mtx2[1][1], mtx3[1][1], mtx4[1][1]]
+cx_all = [mtx1[0][2], mtx2[0][2], mtx3[0][2], mtx4[0][2]]
+cy_all = [mtx1[1][2], mtx2[1][2], mtx3[1][2], mtx4[1][2]]
+
+fx_mean = np.mean(np.array(fx_all))
+fy_mean = np.mean(np.array(fy_all))
+cx_mean = np.mean(np.array(cx_all))
+cy_mean = np.mean(np.array(cy_all))
+
+print(f'fx: {fx_mean} +- {np.sqrt(np.sum((fx_all-fx_mean)**2) / 3)}')
+print(f'fy: {fy_mean} +- {np.sqrt(np.sum((fy_all-fy_mean)**2) / 3)}')
+print(f'cx: {cx_mean} +- {np.sqrt(np.sum((cx_all-cx_mean)**2) / 3)}')
+print(f'cy: {cy_mean} +- {np.sqrt(np.sum((cy_all-cy_mean)**2) / 3)}')
 """
 
 """
@@ -309,7 +397,7 @@ for i in range(len(fps)):
         print(i)
 """
 
-
+"""
 #---------------MobileNet system load 1h data-------------#
 results = np.load("Col_1h_stress_data.npy", allow_pickle=True)
 cpu_data = results.item()["cpu"] #mean:  %
@@ -318,13 +406,13 @@ rss = results.item()["ram_rss"] #mean:  MB
 ram = results.item()["ram_sys"] #mean:  %
 fps = results.item()["fps"] #mean: 
 time = results.item()["time"]
-"""
+
 print(np.mean(cpu_data))
 print(np.mean(temp_data))
 print(np.mean(rss))
 print(np.mean(ram))
 print(np.mean(fps))
-"""
+
 indices = []
 for i in range(len(cpu_data)):
     if cpu_data[i] < 20:
@@ -338,7 +426,7 @@ latency = results.item()["latency"] #mean: ms
 #print(np.mean(latency))
 dropped = results.item()["dropped_targets"]
 
-
+"""
 """
 #---------------ColSeg system load 1h data-------------#
 results = np.load("Col_1h_stress_data.npy", allow_pickle=True)
