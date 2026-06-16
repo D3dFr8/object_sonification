@@ -22,7 +22,7 @@ def playSound(yL,yR,sr):
     #column stack because sounddevice library requires c-contiguous memory blocks
     stereo = np.column_stack((yL,yR))
 
-    #set as C-contiguous array for the sake of the hardware
+    #set as c-contiguous array for the sake of the hardware
     stereo32 = np.ascontiguousarray(stereo, dtype=np.float32)
 
     try:

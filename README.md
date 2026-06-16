@@ -1,6 +1,4 @@
-Links
-
-Formalities: https://www.raspberrypi.com/documentation/computers/getting-started.html
+Links:
 
 OpenCV: https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html
 

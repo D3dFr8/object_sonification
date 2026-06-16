@@ -3,29 +3,22 @@ from picamera2 import Picamera2, Preview
 import numpy as np
 import time
 import datatypes.point as point
-import sound.soundTools as st
 import sound.loadHrir as lH
 import sound.getHRIR as getHRIR
 import datatypes.angle as angle
 from multiprocessing import Process, Pipe
-#from datatypes.point import *
 import matplotlib.pyplot as plt
-from datatypes.chirp import Chirp
 import sys
 import os
 import cv2 as cv
-import glob
 from scipy.signal import lfilter
 import sounddevice as sd
 import psutil
 
-"""
-Framtiden: Logga i en fil och köra med olika filter
-"""
-#init chirp
+#get sampling rate
 sr = lH.getSamplingRate()
-#chirp = Chirp(400, 400, 1/30, sr, 0.2)
 
+#define color ranges
 lower_red1 = np.array([0, 50, 16])
 upper_red1 = np.array([10, 255, 255])
 
@@ -58,21 +51,21 @@ upper_pink = np.array([165, 255, 255])
 
 lower_red2 = np.array([170, 50, 16])
 upper_red2 = np.array([180, 255, 255])
-            
+
+#define real-world dimensions of a balloon for ColSeg
 balloon_w = 0.26
 balloon_h = 0.40
 real_area_color = balloon_w*balloon_h
 
-sensor_size = 0.007857
-#A class to keep track of the state of different key variables for the audio process
+#class to keep track of the state of different key variables for the audio process
 #such as HRIR and filter memory
 class State:
     hL = np.zeros(512) #default HRIR (basically nothing)
     hL[0] = 1
     hR = np.zeros(512)
     hR[0] = 1
-    dist = 1
-    time_since_last_detection = time.time() #+ 99999.0
+    dist = 1 #default distance
+    time_since_last_detection = time.time()
     tracking = False
     ziL = None #memory for gapless filter
     ziR = None
@@ -83,17 +76,16 @@ state = State()
 #----------------------------------------------#
 #-----------------AUDIO HANDLER----------------#
 #----------------------------------------------#
-def audio_process(conn, sr, master_clock):
+def audio_process(conn, sr):#, master_clock):
 
     #real time audio generator
     #frames is updated through the hardware interrupt performed by the DAC
     def callback(output, frames, time_info, status):
         #give the signal to stop playing sound if object has been gone for more than 0.5 seconds
-        #print(state.tracking)
         if time.time() - state.time_since_last_detection > 0.5:
             state.tracking = False
         
-        #if no object has been found, 
+        #if no object has been found
         if not state.tracking:
             output.fill(0)
             state.phase = 0
@@ -110,19 +102,15 @@ def audio_process(conn, sr, master_clock):
 
         current_t = t+state.phase
         #reduce volume with distance. Do not change volume closer than 40 cm
-        vol = 0.2#min(0.4, 0.3/max(state.dist, 0.3))
+        #vol = min(0.4, 0.3/max(state.dist, 0.3))
+        vol = 0.08 #constant volume
         hum = vol*2*(f*current_t - np.floor(f*current_t + 0.5))
         state.phase += (frames/sr)
 
-        #create new gapless filter based on previous and update memory
+        #create new gapless filter based on previous and update memory (IIR filter)
         #this is to ensure that the sound plays smoothly and doesn't click at the end of every audio chunk
         yL, state.ziL = lfilter(state.hL, [1.0], hum, zi=state.ziL)
         yR, state.ziR = lfilter(state.hR, [1.0], hum, zi=state.ziR)
-
-        #max_val = max(np.max(np.abs(yL)), np.max(np.abs(yR)))
-        #if max_val > 0:
-         #   yL = yL/max_val
-          #  yR = yR/max_val
         
         #send to DAC HAT
         stereo = np.column_stack((yL, yR))
@@ -137,18 +125,19 @@ def audio_process(conn, sr, master_clock):
     )
     stream.start()
 
-    
+    #test arrays setup
     latency = []
     atTime = []
     object_time = []
     dropped = []
-    
     try:
+        """
         latency_interval = 1 #to display the latency every x second
         counter = 0
         calc_t = 0
         start_time = time.time()
         dropped_targets = 0
+        """
         while True:
             #returns True if there is data in pipeline. Block for 50 ms
             if conn.poll(0.05):
@@ -163,7 +152,7 @@ def audio_process(conn, sr, master_clock):
                 #drain pipeline of all older messages
                 while conn.poll():
                     msg = conn.recv()
-                    dropped_targets += 1
+                    #dropped_targets += 1
                     if msg == False:
                         stream.stop()
                         return
@@ -177,17 +166,17 @@ def audio_process(conn, sr, master_clock):
                 targetR = r
                 target_point = point.createPointFromSph(targetAz,targetEl,targetR)
 
-                if len(object_time) == 0:
-                    object_time.append(time.time()-master_clock)
+                #record the time at which an object was first spotted in the frame
+                #if len(object_time) == 0:
+                #    object_time.append(time.time()-master_clock)
 
                 #calculate HRIR
-                start_t = time.time()
+                #start_t = time.time()
                 hL_new,hR_new = getHRIR.getHrirAtTarget(target_point, 0.1)
-                calc_t = time.time() - start_t
+                #calc_t = time.time() - start_t
 
                 #normalize HRIR filters
                 energy_val = max(np.sum(np.abs(hL_new)), np.sum(np.abs(hR_new)))
-                #max_val = max(np.max(np.abs(hL_new)), np.max(np.abs(hR_new)))
                 if energy_val > 0:
                     hL_new = hL_new/energy_val
                     hR_new = hR_new/energy_val
@@ -264,6 +253,7 @@ def audio_process(conn, sr, master_clock):
 #------------------MAIN CAMERA LOOP----------------#
 #--------------------------------------------------#
 if __name__ == "__main__":
+    #test arrays setup
     fps = []
     atTime = []
     object_time = []
@@ -275,11 +265,10 @@ if __name__ == "__main__":
 
     this_process = psutil.Process()
 
+    #choose object detection algorithm based on console input
     localization_type = "col"
     if len(sys.argv) > 1:
         localization_type = sys.argv[1]
-
-    path = os.path.abspath(os.getcwd())
     
     #load category file
     file_path = 'categories.txt'
@@ -291,15 +280,17 @@ if __name__ == "__main__":
     with open(file_path, 'r') as file:
         dims = file.readlines()
 
-    master_clock = time.time()
+    #master_clock = time.time()
     
+    #set up data pipe between processes
     parent_conn, child_conn = Pipe()
-    p = Process(target=audio_process, args=(child_conn, sr, master_clock))
+    p = Process(target=audio_process, args=(child_conn, sr))#, master_clock))
     p.start()
 
     #get dictionary with results from the calibration
     calib_results = np.load("calib_results_70-30.npy", allow_pickle=True)
-    #resolution for calibration images was 4056 × 3040, so we take half of that
+    #resolution for calibration images was 4056 × 3040, we use half of that
+    #for real-time stability
     cam_mtx = calib_results.item()["camera matrix"]*0.5
     cam_mtx[2,2] = 1.0
     distortion = calib_results.item()["distortion coeff"]
@@ -309,14 +300,13 @@ if __name__ == "__main__":
     focal_leny = cam_mtx[1,1]
     focal_area = focal_lenx*focal_leny
     
-    # --- TRACKING VARIABLES SETUP ---
-    last_known_distance = 0.0
-    frames_lost_count = 0
-    is_tracking = False
+    #tracking dropoff distance
+    #last_known_distance = 0.0
+    #frames_lost_count = 0
+    #is_tracking = False
 
-    # How many consecutive frames the object must be missing to be considered "lost". 
-    # At 30 FPS, 15 frames is 0.5 seconds.
-    LOSS_THRESHOLD = 30
+    #how many consecutive frames the object must be missing to be considered "lost". 
+    #LOSS_THRESHOLD = 30
 
     #init camera
     picam = Picamera2()
@@ -337,10 +327,12 @@ if __name__ == "__main__":
             picam.start()
             time.sleep(3)
 
+            """
             fps_interval = 1 #to display the frame rate every x second
             counter = 0
             #base_time = time.time()
             start_time = time.time()
+            """
             while True:
                 #get metadata from camera
                 metadata = picam.capture_metadata()
@@ -357,20 +349,19 @@ if __name__ == "__main__":
                     #minimum confidence for an object to be considered
                     threshold = 0.5
                     
-                    
                     for i in range(len(boxes)):
                         if scores[i] > threshold and classes[i] == 0:
-                            if len(object_time) == 0:
-                                object_time.append(time.time()-master_clock)
+                            #record the time at which an object was first spotted in frame:
+                            #if len(object_time) == 0:
+                            #    object_time.append(time.time()-master_clock)
                             area = boxes[i][2]*boxes[i][3]
                             if area > biggest_box:
                                 biggest_box = area
                                 idx_biggest = i
                     
-
                     if idx_biggest >= 0:
-                        # extract normalized coordinates, confidence and object type
-                        # the camera is preset to portrait mode, so we extract the coords and dims this way
+                        #extract normalized coordinates, confidence and object type
+                        #the camera is preset to portrait mode, so we extract the coords and dims this way
                         y, x, h, w = boxes[idx_biggest]
                         confidence = scores[idx_biggest]
                         class_i = int(classes[idx_biggest])
@@ -390,7 +381,6 @@ if __name__ == "__main__":
                         #create array with pixel coordinates and convert to camera's coordinates
                         center_coords = np.array([u, v, w_coord], dtype=np.float64)
                         camera_vec = cam_mtx_inv.dot(center_coords)
-                        #camera_vec[0] = -camera_vec[0]
 
                         #compute horizontal and vertical angles
                         azimuth = np.degrees(np.arctan2(camera_vec[0], 1))
@@ -405,32 +395,20 @@ if __name__ == "__main__":
                             real_w = float(dimensions[:4])
                             real_h = float(dimensions[5:9])
                             
-                        #print(real_w)
-                        #print(real_h)
                         #compute distance based on IRL area of object
                         pixel_area = pixel_w*pixel_h
                         real_area = real_w*real_h
 
                         distance = np.sqrt((real_area*focal_area)/float(pixel_area))
 
-                        last_known_distance = distance  # 'd' is your calculated distance variable
-                        frames_lost_count = 0    # Reset the lost counter because we see the target
-                        
+                        """
+                        last_known_distance = distance
+                        frames_lost_count = 0
+
                         if not is_tracking:
                             print(f"Target Acquired! Tracking started at {distance:.2f} meters.")
                             is_tracking = True
-                        img_area = width*height
-                        #distance = np.sqrt(focal_area*real_area*img_area/float(pixel_area)/(sensor_size**2))
-                        #if real_area < 0.5:
-                        #   chirp.set_len(0.4)
-                        
-                        #if real_area < 0.15:
-                         #   chirp.set_len(2)
-
-                        #if real_area < 0.09:
-                         #   chirp.set_len(20)
-
-                        #print(f"len: {chirp.get_len()}, area: {real_area}")
+                        """
 
                         target = (float(azimuth), float(elevation), float(distance))
 
@@ -439,8 +417,11 @@ if __name__ == "__main__":
                         #print(f"Object at X: {x:.2f}, Y: {y:.2f} (Width: {pixel_w:.2f})")
                         print(f'Azimuth: {target[0]}, Elevation: {target[1]}, Distance: {target[2]}')
                         
-                        #send target point to pipeline for audio
+                        #send target point to pipeline for audio process
                         parent_conn.send(target)
+                    
+                    #record dropoff distance
+                    """
                     else:
                         if is_tracking:
                             frames_lost_count += 1
@@ -454,14 +435,15 @@ if __name__ == "__main__":
                                 # Reset state so it waits for the next time you walk into frame
                                 is_tracking = False 
                                 
-                                # Optional: Save to a file so you don't lose the data
+                                #save to a file
                                 with open("dropoff_distances.txt", "a") as f:
                                     f.write(f"Lost at: {last_known_distance:.2f} meters\n")
-                
-                print("-------------------------------------------")
+                    """
+                    print("-------------------------------------------")
 
                 #time.sleep(0.01)
                 
+                #record system load
                 """
                 counter+=1
                 current_time = time.time()
@@ -503,18 +485,13 @@ if __name__ == "__main__":
                     start_time = time.time()
                 """
                 
-
-                #fps.append(1.0 / (current_time - start_time))
-                #atTime.append(current_time-master_clock)
-                #if current_time-master_clock >= 60:
-                #    raise KeyboardInterrupt
-                #print("FPS: ", 1.0 / (current_time - start_time)) # FPS = 1 / time to process loop
-                
         elif localization_type == "col":
-            scale = 4
-            #configure camera with fps and resolution. An eighth of the OG resolution is used to ensure stable performance
+            scalex = 12
+            scaley = 10
+            #configure camera with fps and resolution. The OG resolution is scaled down 
+            #to ensure more stable performance
             config = picam.create_preview_configuration(
-                main={"size": (int(2028/scale), int(1520/scale)), "format": "XRGB8888"},
+                main={"size": (int(2028/scalex), int(1520/scaley)), "format": "XRGB8888"},
                 controls={"FrameDurationLimits": (33333, 33333)}
             )
             picam.configure(config)
@@ -522,11 +499,13 @@ if __name__ == "__main__":
             picam.start_preview(Preview.QTGL)
             picam.start()
             time.sleep(3)
-
+            
+            """
             fps_interval = 1 #to display the frame rate every x second
             counter = 0
             #master_clock = time.time()
             start_time = time.time()
+            """ 
             while True:
                 img = picam.capture_array()
 
@@ -534,8 +513,8 @@ if __name__ == "__main__":
                 hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
 
                 #create mask and kernel
-                mask = cv.inRange(hsv, lower_blue, upper_blue)
-                kernel = np.ones((5, 5), np.uint8)
+                mask = cv.inRange(hsv, lower_green, upper_green)
+                kernel = np.ones((3, 3), np.uint8)
                 
                 #clean up noise using morphology with a kernel. Opening (erosion, dilation) and Closing (dilation, erosion)
                 mask = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
@@ -544,12 +523,10 @@ if __name__ == "__main__":
                 #find contours of the parts corresponding to the color chosen
                 contours, _ = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
                 
-                #minimum pixel area of object to consider (10x10 size)
-                # default: 400, 
-                # same dropoff distance as with NN: 10,000
-                MIN_AREA = 5000 / (scale**2)
-                
-                #filter contours to only include those larger than 10x10 pixels
+                #minimum pixel area of object to consider
+                MIN_AREA = 5000 / (scalex*scaley)
+
+                #filter contours to only include those larger than the min pixel area
                 filtered_contours = []
                 for contour in contours:
                     if cv.contourArea(contour) > MIN_AREA:
@@ -561,8 +538,9 @@ if __name__ == "__main__":
                 for i in range(len(filtered_contours)):
                     x, y, w, h = cv.boundingRect(filtered_contours[i])
                     area = w*h
-                    if len(object_time) == 0:
-                        object_time.append(time.time()-master_clock)
+                    #record timestamp of object's first appearance
+                    #if len(object_time) == 0:
+                    #    object_time.append(time.time()-master_clock)
                     if area > biggest_box:
                         biggest_box = area
                         idx_biggest = i
@@ -572,8 +550,8 @@ if __name__ == "__main__":
                     x, y, w, h = cv.boundingRect(filtered_contours[idx_biggest])
                     
                     #get coordinates of middle of object
-                    u = float(x + (w/2)) * scale
-                    v = float(y + (h/2)) * scale
+                    u = float(x + (w/2)) * scalex
+                    v = float(y + (h/2)) * scaley
                     w_coord = 1.0
                     
                     #create array with pixel coordinates and convert to camera's coordinates
@@ -584,24 +562,19 @@ if __name__ == "__main__":
                     azimuth = np.degrees(np.arctan2(camera_vec[0], 1))
                     elevation = np.degrees(np.arctan2(camera_vec[1], 1)) * -1
                     
-                    pixel_area = w*h * (scale**2)
+                    pixel_area = w*h * (scalex*scaley)
 
                     distance = np.sqrt((real_area_color*focal_area)/float(pixel_area))
 
-                    last_known_distance = distance  # 'd' is your calculated distance variable
-                    frames_lost_count = 0    # Reset the lost counter because we see the target
-                        
+                    #code to record distance dropoff
+                    """
+                    last_known_distance = distance
+                    frames_lost_count = 0
+
                     if not is_tracking:
                         print(f"Target Acquired! Tracking started at {distance:.2f} meters.")
                         is_tracking = True
-                    #img_area = width*height
-                    #if real_area_color < 0.15:
-                     #   chirp.set_len(2)
-
-                    #if real_area_color < 0.09:
-                     #   chirp.set_len(20)
-
-                    #print(f"len: {chirp.get_len()}, area: {real_area_color}")
+                    """
 
                     target = (float(azimuth), float(elevation), float(distance))
 
@@ -612,6 +585,9 @@ if __name__ == "__main__":
                     
                     #send target point to pipeline for audio
                     parent_conn.send(target)
+
+                #record dropoff distance
+                """
                 else:
                     if is_tracking:
                         frames_lost_count += 1
@@ -628,11 +604,10 @@ if __name__ == "__main__":
                             # Optional: Save to a file so you don't lose the data
                             with open("dropoff_distances.txt", "a") as f:
                                 f.write(f"Lost at: {last_known_distance:.2f} meters\n")
+                """
 
                 print("-------------------------------------------")
 
-                
-                
                 #time.sleep(0.01)
                 """
                 counter+=1
@@ -683,7 +658,6 @@ if __name__ == "__main__":
         picam.stop()
         picam.close()
         
-        #fps tests
         """
         plt.plot(atTime, fps)
         plt.title('Performance of MobileNet SSD per second with human at ~30 sec')
@@ -701,6 +675,7 @@ if __name__ == "__main__":
         np.save("per_second_fps_dataNN_human_30sec.npy", results)
         """
 
+        #plot test results
         """
         #CPU, RAM, fps, and temperature tests
         fig, axs = plt.subplots(5, 1, figsize=(10, 10), sharex=True)

@@ -2,6 +2,15 @@ import numpy as np
 import cv2
 import csv
 
+#--------------------------------------------------#
+#-------------------BIG TEST FILE------------------#
+#--------------------------------------------------#
+
+#--------------------------------------------------#
+#--------------------CALIBRATION-------------------#
+#--------------------------------------------------#
+#thresholding to get difference map of image with textbook lines:
+"""
 imgLoad = cv2.imread('testLines.jpg', 0)
 ogImg = cv2.resize(imgLoad, (4055, 3039))
 
@@ -69,7 +78,8 @@ for split_name, img_undist in undistorted_images.items():
 #For 80-20: 336070 pixels shifted (91.00% of the lines)
 #For 90-10: 319710 pixels shifted (86.57% of the lines)
 
-
+"""
+#mean and std of intrinsic camera params:
 """
 results1 = np.load("calib_results_wide_60-40.npy", allow_pickle=True)
 results2 = np.load("calib_results_wide_70-30.npy", allow_pickle=True)
@@ -85,8 +95,6 @@ T = results1.item()["translation vector"]
 R = results1.item()["rotation vector"]
 
 valid = results1.item()["valid imgs"]
-#print(mtx1)
-#print(dist)
 fx_all = [mtx1[0][0], mtx2[0][0], mtx3[0][0], mtx4[0][0]]
 fy_all = [mtx1[1][1], mtx2[1][1], mtx3[1][1], mtx4[1][1]]
 cx_all = [mtx1[0][2], mtx2[0][2], mtx3[0][2], mtx4[0][2]]
@@ -103,6 +111,7 @@ print(f'cx: {cx_mean} +- {np.sqrt(np.sum((cx_all-cx_mean)**2) / 3)}')
 print(f'cy: {cy_mean} +- {np.sqrt(np.sum((cy_all-cy_mean)**2) / 3)}')
 """
 
+#calculate mean of each error type in a chosen calibration model:
 """
 with open("test_data/calibration/calib_results_wide_90-10.csv", mode='r') as file:
     reader = csv.reader(file)
@@ -119,7 +128,12 @@ for col in range(num_cols):
     print(f"Column {col}: {col_mean}")
 """
 
+#--------------------------------------------------#
+#--------------DIRECTIONAL PERCEPTION--------------#
+#--------------------------------------------------#
 
+#---CONTROLLED TESTS
+#check fps mean per iteration
 """
 #-------------MobileNet fps data------------#
 results = np.load("test_data/fps/fps_dataNN_human_30sec.npy", allow_pickle=True)
@@ -142,9 +156,9 @@ fps = results.item()["fps"] #31.521732959767654
 
 results = np.load("test_data/fps/fps_dataCol_nothing.npy", allow_pickle=True)
 fps = results.item()["fps"] #31.532772301093946
-
-
-
+"""
+#check fps mean per second
+"""
 #-------------MobileNet fps data per second------------#
 results = np.load("per_second_fps_dataNN_human_30sec.npy", allow_pickle=True)
 timestamp = results.item()["human_entry_time"] #30.89207410812378 sec
@@ -155,7 +169,6 @@ fps = results.item()["fps"] #mean: 29.52185052973058
 
 results = np.load("per_second_fps_dataNN_nothing.npy", allow_pickle=True)
 fps = results.item()["fps"] #mean: 29.52183555766092
-
 
 #-------------ColSeg fps data per second------------#
 results = np.load("per_second_fps_dataCol_blueBalloon_30sec.npy", allow_pickle=True)
@@ -173,6 +186,7 @@ fps = results.item()["fps"] #mean: 29.53490502248249
 print(np.mean(fps))
 """
 
+#check HRIR latency and fps mean per second
 """
 #--------------MobileNet latency data 120 sec--------------#
 results = np.load("per_sec_latency_dataNN_human_30sec.npy", allow_pickle=True)
@@ -239,36 +253,7 @@ for i in range(len(fps)):
 
 """
 
-"""
-#---------------MobileNet data 120 sec stress test-------------#
-results = np.load("per_sec_latency_dataNN_human_30sec_check.npy", allow_pickle=True)
-latency = results.item()["latency"] #mean: 21.974200010299683  ms
-print(np.mean(latency))
-dropped = results.item()["dropped_targets"]
-print(dropped)
-
-results = np.load("per_second_fps_dataNN_human_30sec_check.npy", allow_pickle=True)
-fps = results.item()["fps"] #mean: 29.20164711900892
-print(np.mean(fps))
-
-for i in range(len(fps)):
-    if latency[i] > 1000/fps[i]:
-        print("bad")
-        print(i)
-#bottleneck at index115.
-
-
-#---------------Colseg data 120 sec stress test-------------#
-#1:
-#latency mean: 20.303083247825747
-#fps mean: 29.769731259738634
-#no bottleneck
-#2:
-#latency mean: 
-#fps mean: 
-#
-"""
-
+#check system load:
 """
 #---------------MobileNet system load data-------------#
 results = np.load("fps_RAM_CPU_temp_dataNN_human_30sec.npy", allow_pickle=True)
@@ -397,6 +382,38 @@ for i in range(len(fps)):
         print(i)
 """
 
+#---STRESS TESTS
+#check 120 second stress test data
+"""
+#---------------MobileNet data 120 sec stress test-------------#
+results = np.load("per_sec_latency_dataNN_human_30sec_check.npy", allow_pickle=True)
+latency = results.item()["latency"] #mean: 21.974200010299683  ms
+print(np.mean(latency))
+dropped = results.item()["dropped_targets"]
+print(dropped)
+
+results = np.load("per_second_fps_dataNN_human_30sec_check.npy", allow_pickle=True)
+fps = results.item()["fps"] #mean: 29.20164711900892
+print(np.mean(fps))
+
+for i in range(len(fps)):
+    if latency[i] > 1000/fps[i]:
+        print("bad")
+        print(i)
+#bottleneck at index 115.
+
+#---------------Colseg data 120 sec stress test-------------#
+#1:
+#latency mean: 20.303083247825747
+#fps mean: 29.769731259738634
+#no bottleneck
+#2:
+#latency mean: 
+#fps mean: 
+#
+"""
+
+#check 1 hour stress test data
 """
 #---------------MobileNet system load 1h data-------------#
 results = np.load("Col_1h_stress_data.npy", allow_pickle=True)
@@ -456,6 +473,7 @@ print(np.mean(dropped1))
 print(np.sum(dropped1))
 """
 
+#check 10 minute stress test data
 """
 #---------------ColSeg system load 10min data-------------#
 results = np.load("Col_10min_stress_10000pix_data.npy", allow_pickle=True)
