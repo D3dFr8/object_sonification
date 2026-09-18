@@ -27,6 +27,8 @@ _Expected Hardware_
 
 For more information on the individual hardware components, see _Links_ at the bottom of this README. 
 Below is an image of the complete system.
+
+
 <img width="801" height="789" alt="image" src="https://github.com/user-attachments/assets/7841aecd-13cd-4afd-a8f4-11862aa768fd" />
 
 _Instructions_
