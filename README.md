@@ -16,6 +16,8 @@ rendered into spatial audio with Head-Related Impulse Responses (HRIR), and a so
 inside a pair of headphones that corresponds to the direction of said object in the real world, along with 
 a frequency attenuation depending on the distance to it.
 
+To read the master theses written on this project, see "theses" folder.
+
 **Expected Hardware**
 
 1. Raspberry Pi 5.
@@ -62,5 +64,3 @@ Raspberry Pi 5: https://www.raspberrypi.com/products/raspberry-pi-5/
 Innomaker DAC HAT: https://www.inno-maker.com/hifi-dac-hat-for-raspberry-pi/
 
 Raspberry Pi AI camera: https://www.raspberrypi.com/documentation/accessories/ai-camera.html
-
-To read the master theses written on this project, see "theses" folder.
