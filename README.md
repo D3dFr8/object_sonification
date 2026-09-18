@@ -1,4 +1,4 @@
-_Introduction_
+**Introduction**
 
 The goal of this project was to develop a physical prototypical platform that implemented
 directional perception for the sonification of objects in an image captured by an AI camera,
@@ -16,7 +16,7 @@ rendered into spatial audio with Head-Related Impulse Responses (HRIR), and a so
 inside a pair of headphones that corresponds to the direction of said object in the real world, along with 
 a frequency attenuation depending on the distance to it.
 
-_Expected Hardware_
+**Expected Hardware**
 
 1. Raspberry Pi 5.
 2. Innomaker DAC HAT on top of the Pi, where the headphones are attached through a headphone jack.
@@ -25,24 +25,22 @@ _Expected Hardware_
 5. A 3D-printed casing and stand for the camera, to ease carrying and handling of the system.
 (Not obligatory but highly recommended to ensure physical stability of the camera during runtime).
 
-For more information on the individual hardware components, see _Links_ at the bottom of this README. 
+For more information on the individual hardware components, see **Links** at the bottom of this README. 
 Below is an image of the complete system.
 
 
 <img width="801" height="789" alt="image" src="https://github.com/user-attachments/assets/7841aecd-13cd-4afd-a8f4-11862aa768fd" />
 
 
+**Instructions**
 
-
-_Instructions_
-
-**Startup**
+_Startup_
 
 1. Navigate to "tqet33-exjobb/code/" in a terminal window.
 2. Create a virtual environment and activate it.
 3. Run "python3 object_localization.py" for object detection with color segmentation. Add "nn" as an argument to run the object detection with MobileNet SSD instead.
 
-**Configurations**
+_Configurations_
 
 The following configurations refer to changes made within "object_localization.py" unless specified otherwise
 
@@ -55,7 +53,8 @@ To change:
 
 4. the calibration data set used by the object detection - modify line 291. Calibration data set splits from 60/40 to 90/10 are contained within "tqet33-exjobb/code/test_data/calibration". To create a new data set, open file "calibrate.py" and modify line 22 (image set), 25 (training set size), and 192 (new data set name) accordingly. Run the file.
 
-_Links_
+**Links**
+
 Raspberry Pi 5: https://www.raspberrypi.com/products/raspberry-pi-5/  
 
 Innomaker DAC HAT: https://www.inno-maker.com/hifi-dac-hat-for-raspberry-pi/
