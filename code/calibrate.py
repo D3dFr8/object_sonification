@@ -19,7 +19,7 @@ objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
 path = os.path.abspath(os.getcwd())
-images = glob.glob(path+'/imagesForCalibWide/*.jpg')
+images = glob.glob(path+'/experiments/imagesForCalibWide/*.jpg')
 random.shuffle(images)
 
 split_idx = int(len(images)*0.7) #CHANGE THIS FOR DATASET SPLIT

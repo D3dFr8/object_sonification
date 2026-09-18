@@ -23,7 +23,7 @@ imgpoints = results.item()["img points"]
 valid_imgs = results.item()["valid imgs"]
 
 #prepare new image for undistortion
-img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/testLines.jpg')
+img = cv.imread('/home/pi2/Documents/exjobb/tqet33-exjobb/code/experiments/test_imgs/testLines.jpg')
 h,  w = img.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 0, (w,h))
 

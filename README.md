@@ -26,7 +26,7 @@ a frequency attenuation depending on the distance to it.
 (Not obligatory but highly recommended to ensure physical stability of the camera during runtime).
 
 For more information on the individual hardware components, see **Links** at the bottom of this README. 
-Below is an image of the complete system.
+Below is an image of the complete system in the real world.
 
 
 <img width="801" height="789" alt="image" src="https://github.com/user-attachments/assets/7841aecd-13cd-4afd-a8f4-11862aa768fd" />
@@ -36,9 +36,10 @@ Below is an image of the complete system.
 
 _Startup_
 
-1. Navigate to "tqet33-exjobb/code/" in a terminal window.
+1. Navigate to "object_sonification/code/" in a terminal window.
 2. Create a virtual environment and activate it.
-3. Run "python3 object_localization.py" for object detection with color segmentation. Add "nn" as an argument to run the object detection with MobileNet SSD instead.
+3. If there are Python packages missing, download them through pip install.
+4. Run "python3 object_localization.py" for object detection with color segmentation. Add "nn" as an argument to run the object detection with MobileNet SSD instead.
 
 _Configurations_
 
@@ -51,7 +52,8 @@ To change:
 
 3. which object is to be detected with color segmentation - define the real-world dimensions [m] of the object on line 56-57 and modify line 516 according to the color of the object. The color ranges are defined at the top of the file. The default object is a balloon inflated to its maximum size.
 
-4. the calibration data set used by the object detection - modify line 291. Calibration data set splits from 60/40 to 90/10 are contained within "tqet33-exjobb/code/test_data/calibration". To create a new data set, open file "calibrate.py" and modify line 22 (image set), 25 (training set size), and 192 (new data set name) accordingly. Run the file.
+4. the calibration data set used by the object detection - modify line 291. Calibration data set splits from 60/40 to 90/10 are contained within "tqet33-exjobb/code/experiments/test_data/calibration". 
+To create a new data set, open file "calibrate.py" and modify line 22 (image set), 25 (training set size), and 192 (new data set name) accordingly. Run the file.
 
 **Links**
 
@@ -60,3 +62,5 @@ Raspberry Pi 5: https://www.raspberrypi.com/products/raspberry-pi-5/
 Innomaker DAC HAT: https://www.inno-maker.com/hifi-dac-hat-for-raspberry-pi/
 
 Raspberry Pi AI camera: https://www.raspberrypi.com/documentation/accessories/ai-camera.html
+
+To read the master theses written on this project, see "theses" folder.
