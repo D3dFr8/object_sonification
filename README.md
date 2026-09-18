@@ -52,7 +52,7 @@ To change:
 
 3. which object is to be detected with color segmentation - define the real-world dimensions [m] of the object on line 56-57 and modify line 516 according to the color of the object. The color ranges are defined at the top of the file. The default object is a balloon inflated to its maximum size.
 
-4. the calibration data set used by the object detection - modify line 291. Calibration data set splits from 60/40 to 90/10 are contained within "tqet33-exjobb/code/experiments/test_data/calibration". 
+4. the calibration data set used by the object detection - modify line 291. Calibration data set splits from 60/40 to 90/10 are contained within "object_sonification/code/experiments/test_data/calibration". 
 To create a new data set, open file "calibrate.py" and modify line 22 (image set), 25 (training set size), and 192 (new data set name) accordingly. Run the file.
 
 **Links**
